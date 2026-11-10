@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#002347">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cobalt Marketing">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>Cobalt Marketing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f8fb; --surface:#ffffff; --surface-sunk:#eef1f6;
+    --ink:#0f1e33; --ink-soft:#33475f; --ink-faint:#64748b; --line:#e2e8f0;
+    --cobalt:#0047AB; --cobalt-dark:#002347; --cobalt-mid:#1a4b8c; --cobalt-light:#4a7fc4; --cobalt-tint:#e7edf9;
+    --amber:#9a6a12; --amber-tint:#fbf0dd; --green:#0f7a4a; --green-tint:#e3f2ea; --red:#b3261e; --red-tint:#f8e9e7; --grey-tint:#eef1f4;
+    --radius:8px; --shadow:0 1px 2px rgba(15,30,51,0.04), 0 8px 24px -12px rgba(15,30,51,0.14);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif; font-variant-numeric:tabular-nums; }
+  .display{ font-family:'Sora',sans-serif; }
+  .mono{ font-family:'IBM Plex Mono',monospace; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 28px 80px; }
+  .topbar{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:18px; flex-wrap:wrap; }
+  .brand{ display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
+  .brand-mark svg{ height:40px; width:auto; display:block; }
+  .brand h1{ font-size:20px; margin:0; font-weight:600; letter-spacing:-0.01em; }
+  .brand p{ margin:1px 0 0; font-size:12.5px; color:var(--ink-soft); }
+  .actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{ border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:8px 14px; border-radius:6px; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; gap:7px; transition:border-color .15s, background .15s; text-decoration:none; }
+  .btn:hover{ border-color:var(--cobalt); background:var(--cobalt-tint); }
+  .btn-primary{ background:var(--cobalt); border-color:var(--cobalt); color:#fff; }
+  .btn-primary:hover{ background:var(--cobalt-dark); border-color:var(--cobalt-dark); }
+  .btn-ghost{ color:var(--ink-soft); }
+  .btn-danger{ color:var(--red); border-color:var(--red-tint); background:var(--red-tint); }
+  .btn-green{ background:var(--green); border-color:var(--green); color:#fff; }
+  .btn-green:hover{ background:#0b5e39; border-color:#0b5e39; }
+  .btn-sm{ padding:5px 10px; font-size:12px; }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .tabs{ display:flex; gap:2px; border-bottom:1px solid var(--line); margin-bottom:18px; overflow-x:auto; }
+  .tab{ background:none; border:none; padding:10px 16px; font-size:13px; font-weight:600; color:var(--ink-soft); border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
+  .tab.active{ color:var(--cobalt); border-bottom-color:var(--cobalt); }
+  .tab .ct{ font-family:'IBM Plex Mono',monospace; font-size:11px; background:var(--surface-sunk); padding:1px 6px; border-radius:10px; margin-left:6px; color:var(--ink-soft); }
+  .tab.active .ct{ background:var(--cobalt-tint); color:var(--cobalt-dark); }
+  .summary{ display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; margin-bottom:18px; }
+  .summary .cell{ background:var(--surface); padding:14px 16px; cursor:pointer; }
+  .summary .cell:hover{ background:#eef3fb; }
+  .summary .num{ font-family:'Sora',sans-serif; font-size:22px; font-weight:600; line-height:1; }
+  .summary .lbl{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); margin-top:6px; text-transform:uppercase; letter-spacing:.08em; }
+  .num.warn{ color:var(--amber); } .num.bad{ color:var(--red); } .num.accent{ color:var(--cobalt); } .num.good{ color:var(--green); }
+  .empty{ text-align:center; padding:56px 20px; color:var(--ink-soft); background:var(--surface); border:1px dashed var(--line); border-radius:var(--radius); }
+  .empty .display{ font-size:19px; color:var(--ink); margin-bottom:8px; }
+  .empty p{ max-width:460px; margin:0 auto 16px; font-size:13.5px; line-height:1.5; }
+  .group{ margin-bottom:26px; }
+  .group-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
+  .group-head h3{ font-family:'Sora',sans-serif; font-size:16px; margin:0; font-weight:600; }
+  .group-head .sub{ margin-top:3px; }
+  .sub{ font-size:11.5px; color:var(--ink-faint); }
+  .post{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:10px; overflow:hidden; }
+  .post-head{ display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); background:#fbfcfe; flex-wrap:wrap; }
+  .chan{ font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--cobalt); font-weight:600; }
+  .post-head .spacer{ flex:1; }
+  .post-body{ padding:12px 14px; display:grid; grid-template-columns:1fr; gap:10px; }
+  .post-body.with-card{ grid-template-columns:1fr 220px; }
+  .post textarea{ width:100%; min-height:150px; padding:10px 11px; border:1px solid var(--line); border-radius:7px; font:13.5px/1.55 'IBM Plex Sans',sans-serif; color:var(--ink); resize:vertical; background:var(--surface); }
+  .post input.subj{ width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font:600 13.5px 'IBM Plex Sans',sans-serif; margin-bottom:8px; }
+  .post .meta-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--ink-soft); }
+  .post .meta-row input[type=datetime-local]{ font:12px 'IBM Plex Mono',monospace; padding:5px 7px; border:1px solid var(--line); border-radius:6px; }
+  .post-foot{ display:flex; gap:8px; align-items:center; padding:10px 14px; border-top:1px solid var(--line); flex-wrap:wrap; }
+  .post-foot .spacer{ flex:1; }
+  .flags{ display:flex; flex-direction:column; gap:4px; }
+  .flag{ font-size:12px; border-radius:6px; padding:5px 9px; }
+  .flag.block{ background:var(--red-tint); color:var(--red); font-weight:600; }
+  .flag.warn{ background:var(--amber-tint); color:var(--amber); }
+  .count{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); }
+  .count.over{ color:var(--red); font-weight:600; }
+  .linkline{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); word-break:break-all; }
+  .cardbox canvas{ width:100%; height:auto; border:1px solid var(--line); border-radius:6px; display:block; }
+  .cardbox .fb{ margin-top:6px; }
+  .cardbox input{ width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:12.5px 'IBM Plex Sans',sans-serif; margin-top:4px; }
+  .pill{ display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; background:var(--grey-tint); color:var(--ink-soft); }
+  .st-draft{ background:var(--grey-tint); color:var(--ink-soft); }
+  .st-approved{ background:var(--cobalt-tint); color:var(--cobalt-dark); }
+  .st-scheduled{ background:#e8e4f6; color:#4b3a8f; }
+  .st-sent{ background:var(--green-tint); color:var(--green); }
+  .st-failed, .st-rejected{ background:var(--red-tint); color:var(--red); }
+  .st-needs_finish{ background:var(--amber-tint); color:var(--amber); }
+  .st-in_review{ background:var(--amber-tint); color:var(--amber); }
+  .st-generating{ background:var(--cobalt-tint); color:var(--cobalt); }
+  .st-done{ background:var(--green-tint); color:var(--green); }
+  .tablewrap{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto; box-shadow:var(--shadow); }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  thead th{ text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); padding:11px 12px; background:var(--surface-sunk); border-bottom:1px solid var(--line); font-weight:600; white-space:nowrap; }
+  tbody tr{ border-bottom:1px solid var(--line); } tbody tr:last-child{ border-bottom:none; }
+  td{ padding:9px 12px; vertical-align:top; }
+  .day{ font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--ink-soft); margin:18px 0 8px; font-weight:600; }
+  .agenda{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:11px 14px; margin-bottom:8px; display:flex; gap:14px; align-items:flex-start; box-shadow:var(--shadow); }
+  .agenda .when{ font-family:'IBM Plex Mono',monospace; font-size:12px; white-space:nowrap; width:64px; padding-top:2px; }
+  .agenda .main{ flex:1; min-width:0; }
+  .agenda .excerpt{ font-size:12.5px; color:var(--ink-soft); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .agenda .err{ font-size:12px; color:var(--red); margin-top:4px; white-space:pre-wrap; }
+  .agenda .acts{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow); margin-bottom:16px; }
+  .panel h3{ font-family:'Sora',sans-serif; font-size:15px; margin:0 0 4px; }
+  .panel > p{ font-size:12.5px; color:var(--ink-soft); margin:0 0 14px; line-height:1.5; }
+  .fb label{ display:block; font-size:11.5px; font-weight:600; margin-bottom:4px; color:var(--ink-soft); }
+  .fb input, .fb select, .fb textarea{ width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:inherit; background:var(--surface); color:var(--ink); }
+  .fb textarea{ min-height:64px; resize:vertical; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px 14px; }
+  .chrow{ display:grid; grid-template-columns:200px 90px 1fr; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .chrow:last-child{ border-bottom:none; }
+  .chrow select{ width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font:13px 'IBM Plex Sans',sans-serif; }
+  .chrow .multi{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; }
+  .chrow .multi label{ display:flex; gap:5px; align-items:center; }
+  .keyrow{ display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .keyrow .name{ width:150px; font-weight:600; font-size:13px; }
+  .keyrow input{ flex:1; min-width:200px; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font:13px 'IBM Plex Mono',monospace; }
+  .ok{ color:var(--green); font-weight:600; } .no{ color:var(--amber); font-weight:600; }
+  .switch{ position:relative; width:38px; height:22px; display:inline-block; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .switch span{ position:absolute; inset:0; background:#cbd5e1; border-radius:22px; transition:.15s; cursor:pointer; }
+  .switch span:before{ content:''; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s; }
+  .switch input:checked + span{ background:var(--cobalt); }
+  .switch input:checked + span:before{ transform:translateX(16px); }
+  .overlay{ position:fixed; inset:0; background:rgba(15,30,51,0.45); display:flex; align-items:flex-start; justify-content:center; z-index:50; padding:40px 24px; overflow-y:auto; }
+  .modal{ background:var(--surface); border-radius:14px; width:100%; max-width:640px; box-shadow:0 24px 60px -20px rgba(0,0,0,0.35); }
+  .modal-head{ padding:20px 24px 6px; display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+  .modal-head h2{ font-size:19px; margin:0 0 4px; }
+  .modal-head p{ font-size:12.5px; color:var(--ink-soft); margin:0; }
+  .modal-body{ padding:12px 24px 18px; display:grid; gap:12px; }
+  .modal-foot{ display:flex; justify-content:space-between; align-items:center; padding:14px 24px 22px; gap:10px; border-top:1px solid var(--line); }
+  .x{ background:none; border:none; font-size:22px; color:var(--ink-faint); line-height:1; padding:2px 6px; }
+  .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-size:12.5px; z-index:200; opacity:0; pointer-events:none; transition:opacity .2s; max-width:90vw; }
+  .toast.show{ opacity:1; }
+  .busy{ display:inline-block; width:12px; height:12px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .authgate{ position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:500; padding:24px; }
+  .authcard{ background:var(--surface); border:1px solid var(--line); border-radius:14px; width:100%; max-width:380px; padding:28px; box-shadow:var(--shadow); }
+  .authcard h1{ font-size:20px; margin:0 0 3px; }
+  .authcard p.sub{ font-size:12.5px; color:var(--ink-soft); margin:0 0 18px; }
+  .authcard label{ display:block; font-size:12px; font-weight:600; margin:12px 0 5px; }
+  .authcard input{ width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; font-family:inherit; }
+  .authcard .btn-primary{ width:100%; justify-content:center; margin-top:18px; padding:10px; }
+  .authcard .err{ font-size:12.5px; color:var(--red); margin-top:10px; display:none; }
+  .authcard .err.show{ display:block; }
+  .banner{ border-radius:8px; padding:10px 12px; font-size:12.5px; margin-bottom:14px; line-height:1.5; }
+  .banner.amber{ background:var(--amber-tint); color:var(--amber); }
+  .banner.blue{ background:var(--cobalt-tint); color:var(--cobalt-dark); }
+  ::selection{ background:var(--cobalt-tint); }
+  @media (max-width:860px){
+    .wrap{ padding:16px 14px 60px; }
+    .summary{ grid-template-columns:repeat(3,1fr); }
+    .post-body.with-card{ grid-template-columns:1fr; }
+    .grid2, .grid4{ grid-template-columns:1fr 1fr; }
+    .chrow{ grid-template-columns:1fr auto; }
+    .chrow > :last-child{ grid-column:1 / -1; }
+    .overlay{ padding:0; }
+    .modal{ border-radius:0; min-height:100vh; }
+  }
+  @media (max-width:700px){
+    body{ padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
+    .brand-mark svg{ height:34px; }
+    .brand h1{ font-size:22px; }
+    .brand p{ display:none; }
+    .actions{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .actions .btn{ justify-content:center; padding:13px 10px; font-size:16px; }
+    .summary .num{ font-size:24px; } .summary .lbl{ font-size:11px; letter-spacing:.04em; }
+    .tab{ padding:13px 14px; font-size:16px; }
+    .post textarea{ font-size:16px; min-height:220px; }
+    .post input.subj{ font-size:16px; }
+    .post-foot .btn{ flex:1 1 auto; justify-content:center; padding:13px 12px; font-size:15.5px; }
+    .post-foot .spacer{ display:none; }
+    .flag{ font-size:14px; }
+    .chan{ font-size:13px; }
+    .agenda{ flex-wrap:wrap; } .agenda .acts{ flex:1 1 100%; justify-content:stretch; } .agenda .acts .btn{ flex:1; justify-content:center; padding:12px; font-size:15px; }
+    .agenda .excerpt{ white-space:normal; font-size:14px; }
+    .fb input, .fb select, .fb textarea{ font-size:16px; padding:12px; }
+    .grid2, .grid4{ grid-template-columns:1fr; }
+    .keyrow .name{ width:100%; }
+    .btn-sm{ padding:10px 12px; font-size:15px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="authgate" id="authGate">
+  <div class="authcard">
+    <h1 class="display">Sign in</h1>
+    <p class="sub">Cobalt Marketing. For the team only.</p>
+    <label for="authEmail">Email</label>
+    <input type="email" id="authEmail" autocomplete="username">
+    <label for="authPassword">Password</label>
+    <input type="password" id="authPassword" autocomplete="current-password">
+    <button class="btn btn-primary" id="authSubmit">Sign in</button>
+    <div class="err" id="authErr"></div>
+  </div>
+</div>
+
+<div class="wrap" id="mainApp" style="display:none;">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://www.w3.org/2000/svg" viewBox="140 270 745 225"><polygon fill="#1a4b8c" points="242.74669 285.5804 256.15816 374.10946 327.42649 334.47028"/><polygon fill="#4a7fc4" points="329.32111 430.70878 329.32111 335.56417 258.07371 383.13647"/><polygon fill="#002347" points="154.63524 335.56417 154.63524 430.70878 225.88271 383.13647"/><polygon fill="#0047ab" points="227.7982 374.10946 241.20966 285.5804 156.52986 334.47028"/><polygon fill="#0047ab" points="227.7982 392.16349 155.13954 432.57591 241.4713 482.4196"/><polygon fill="#1a4b8c" points="256.15816 392.16349 242.48506 482.4196 328.81682 432.57591"/><g style="fill:#002347"><path d="m 441.8149,347.11795 -8.78946,10.01303 c -4.78384,-5.34015 -11.68195,-9.34577 -20.36045,-9.34577 -16.4658,0 -27.48048,12.34973 -27.48048,29.59476 0,17.02261 11.01469,29.48329 27.48048,29.48329 9.01238,0 16.02146,-4.11658 20.8053,-9.79061 l 8.6785,10.23596 c -7.78831,8.56704 -17.69038,12.34973 -29.4838,12.34973 -24.2541,0 -41.6106,-18.13522 -41.6106,-42.27837 0,-24.36557 17.35649,-42.38933 41.6106,-42.38933 12.46119,0 21.47307,4.22753 29.14991,12.1273 z"/><path d="m 542.05568,377.37998 c 0,24.47703 -17.80134,42.27837 -41.6111,42.27837 -23.92022,0 -41.6106,-17.80134 -41.6106,-42.27837 0,-24.36557 17.69038,-42.38933 41.6106,-42.38933 23.80976,0 41.6111,18.02376 41.6111,42.38933 z m -69.09159,0 c 0,17.24503 11.34807,29.48329 27.48048,29.48329 16.02146,0 27.48099,-12.23826 27.48099,-29.48329 0,-17.24503 -11.45953,-29.59476 -27.48099,-29.59476 -16.13242,0 -27.48048,12.34973 -27.48048,29.59476 z"/><path d="m 623.38149,358.2436 c 0,8.56704 -4.56142,14.01865 -8.90042,16.4663 8.78946,2.67007 15.57611,8.45557 15.57611,20.13753 0,14.90884 -11.571,23.36441 -26.92468,23.36441 h -35.60268 v -81.77469 h 30.15106 c 16.4663,0 25.7006,8.34411 25.7006,21.80645 z m -42.05544,-9.12334 v 21.58403 h 15.35369 c 7.89926,0 12.68361,-4.44996 12.68361,-10.79176 0,-6.78665 -4.67288,-10.79227 -13.46234,-10.79227 z m 0,33.26648 v 23.14149 h 20.13753 c 8.90092,0 14.57496,-4.00511 14.57496,-11.57049 0,-7.45442 -5.34015,-11.571 -15.46464,-11.571 h -19.24784 z"/><path d="m 761.5581,405.86212 h 37.04867 v 12.34973 h -50.95636 v -81.77469 h 13.90769 v 69.42497 z"/><path d="m 869.36476,348.78688 h -27.70291 v 69.42497 h -13.90769 v -69.42497 h -27.70291 v -12.34973 h 69.3135 v 12.34973 z"/></g><polygon fill="#002347" points="686.35066 334.99065 685.90582 334.99065 647.41014 418.21184 662.54141 418.21184 686.12824 363.58375 709.71508 418.21184 724.84584 418.21184"/><polygon fill="#0047ab" points="675.65591 418.21184 686.12824 393.95749 696.60057 418.21184"/><g style="fill:#1a4b8c"><path d="m 382.62256,442.73596 c 0.86963,-0.86963 1.89795,-1.54346 3.0874,-2.02197 1.18799,-0.47803 2.49268,-0.71729 3.91309,-0.71729 1.50684,0 2.90576,0.3042 4.19629,0.91309 1.28955,0.60889 2.44189,1.50781 3.45654,2.6958 l 4.56592,-4.17432 c -1.4502,-1.76758 -3.24707,-3.10889 -5.39209,-4.02197 -2.14551,-0.91309 -4.53711,-1.36963 -7.17432,-1.36963 -2.34814,0 -4.52979,0.38477 -6.54443,1.15234 -2.01514,0.76855 -3.76855,1.86279 -5.26123,3.28271 -1.49316,1.4209 -2.65234,3.0874 -3.47852,5.00049 -0.82617,1.91357 -1.23926,4.01562 -1.23926,6.30518 0,2.29004 0.41309,4.3916 1.23926,6.30469 0.82617,1.91357 1.97852,3.58057 3.45703,5.00049 1.47803,1.4209 3.22412,2.51514 5.23926,3.2832 2.01465,0.76758 4.19629,1.15234 6.54443,1.15234 2.6665,0 5.07227,-0.46436 7.21777,-1.3916 2.14502,-0.92725 3.94189,-2.27539 5.39209,-4.04395 l -4.56592,-4.17432 c -1.01465,1.18896 -2.16699,2.09473 -3.45654,2.71777 -1.29053,0.62354 -2.68945,0.93506 -4.19629,0.93506 -1.42041,0 -2.7251,-0.23926 -3.91309,-0.71777 -1.18945,-0.47803 -2.21777,-1.15234 -3.0874,-2.02197 -0.86963,-0.86963 -1.54395,-1.89795 -2.02197,-3.08691 -0.47852,-1.18848 -0.71729,-2.50732 -0.71729,-3.95703 0,-1.44922 0.23877,-2.76807 0.71729,-3.95703 0.47803,-1.18848 1.15234,-2.21777 2.02197,-3.0874 z"/><path d="m 431.45312,438.47473 c -1.50732,-1.41992 -3.26855,-2.51416 -5.2832,-3.28271 -2.01514,-0.76758 -4.2251,-1.15234 -6.63086,-1.15234 -2.40674,0 -4.6167,0.39111 -6.63086,1.17383 -2.01562,0.78271 -3.77637,1.88477 -5.2832,3.30469 -1.50781,1.4209 -2.67432,3.08057 -3.50049,4.979 -0.82617,1.89893 -1.23926,3.99365 -1.23926,6.2832 0,2.26123 0.41309,4.34814 1.23926,6.26123 0.82617,1.91357 1.99268,3.58057 3.50049,5.00049 1.50684,1.4209 3.27539,2.52197 5.30469,3.30469 2.02881,0.78271 4.24658,1.17432 6.65283,1.17432 2.37646,0 4.57227,-0.38477 6.5874,-1.15234 2.01465,-0.76807 3.77588,-1.8623 5.2832,-3.2832 1.50684,-1.41992 2.67432,-3.09375 3.50049,-5.02197 0.82617,-1.92773 1.23926,-4.02197 1.23926,-6.2832 0,-2.28955 -0.41309,-4.3916 -1.23926,-6.30518 -0.82617,-1.91309 -1.99365,-3.57959 -3.50049,-5.00049 z m -3.10888,15.24072 c -0.47852,1.17383 -1.15234,2.20312 -2.02197,3.0874 -0.86963,0.88428 -1.87744,1.56543 -3.02197,2.04346 -1.14551,0.47852 -2.39893,0.71777 -3.76123,0.71777 -1.36279,0 -2.62402,-0.23926 -3.7832,-0.71777 -1.15967,-0.47803 -2.16699,-1.15918 -3.02197,-2.04346 -0.85547,-0.88428 -1.52197,-1.91357 -2,-3.0874 -0.47852,-1.17383 -0.71729,-2.48535 -0.71729,-3.93506 0,-1.44922 0.23877,-2.76123 0.71729,-3.93506 0.47803,-1.17432 1.14453,-2.20264 2,-3.0874 0.85498,-0.88379 1.8623,-1.56543 3.02197,-2.04395 1.15918,-0.47803 2.42041,-0.71729 3.7832,-0.71729 1.3623,0 2.61572,0.23926 3.76123,0.71729 1.14453,0.47852 2.15234,1.16016 3.02197,2.04395 0.86963,0.88477 1.54346,1.91309 2.02197,3.0874 0.47852,1.17383 0.71729,2.48584 0.71729,3.93506 0,1.44971 -0.23877,2.76123 -0.71729,3.93506 z"/><path d="m 441.49756,434.56165 v 30.4375 h 6.56592 v -17.95252 l 8.95752,14.69129 h 3.13086 l 8.96624,-14.89313 0.0777,18.15436 h 6.56592 v -30.4375 h -5.87012 l -11.16882,18.89502 -11.39856,-18.89502 z"/><path d="m 483.02295,434.56165 v 30.4375 h 6.56592 v -17.95252 l 8.95752,14.69129 h 3.13086 l 8.96624,-14.89313 0.0777,18.15436 h 6.56592 v -30.4375 h -5.87012 l -11.16882,18.89502 -11.39856,-18.89502 z"/><path d="M 545.68164,446.77991 H 531.5498 v -6.56592 h 16.00147 v -5.65234 h -23.00244 v 30.4375 h 23.56738 v -5.65284 H 531.5498 v -7.04394 h 14.13184 z"/><path d="m 573.94482,455.19397 c 1.97119,-0.85498 3.49316,-2.10156 4.56592,-3.73975 1.07227,-1.63721 1.60889,-3.60156 1.60889,-5.8916 0,-3.42041 -1.17432,-6.10938 -3.52197,-8.06592 -2.34814,-1.95703 -5.63867,-2.93506 -9.87061,-2.93506 h -13.00146 v 30.4375 h 7.08789 v -8.52246 h 6.0874 c 0.10492,0 0.20007,-0.0111 0.30389,-0.0123 l 5.91388,8.53479 h 7.56641 l -6.78369,-9.78943 c 0.0138,-0.006 0.0297,-0.01 0.0435,-0.0157 z m -2.56543,-13.52295 c 1.10156,0.91309 1.65234,2.21045 1.65234,3.8916 0,1.68164 -0.55078,2.98584 -1.65234,3.91309 -1.10205,0.92822 -2.7251,1.3916 -4.86963,1.3916 h -5.69629 V 440.3009 h 5.69629 c 2.14453,0 3.76758,0.45703 4.86963,1.37012 z"/><path d="m 593.64258,442.73596 c 0.86963,-0.86963 1.89795,-1.54346 3.0874,-2.02197 1.18799,-0.47803 2.49268,-0.71729 3.91309,-0.71729 1.50684,0 2.90576,0.3042 4.19629,0.91309 1.28955,0.60889 2.44189,1.50781 3.45654,2.6958 l 4.56592,-4.17432 c -1.4502,-1.76758 -3.24707,-3.10889 -5.39209,-4.02197 -2.14551,-0.91309 -4.53711,-1.36963 -7.17432,-1.36963 -2.34814,0 -4.52979,0.38477 -6.54443,1.15234 -2.01514,0.76855 -3.76855,1.86279 -5.26123,3.28271 -1.49316,1.4209 -2.65234,3.0874 -3.47852,5.00049 -0.82617,1.91357 -1.23926,4.01562 -1.23926,6.30518 0,2.29004 0.41309,4.3916 1.23926,6.30469 0.82617,1.91357 1.97852,3.58057 3.45703,5.00049 1.47803,1.4209 3.22412,2.51514 5.23926,3.2832 2.01465,0.76758 4.19629,1.15234 6.54443,1.15234 2.6665,0 5.07227,-0.46436 7.21777,-1.3916 2.14502,-0.92725 3.94189,-2.27539 5.39209,-4.04395 l -4.56592,-4.17432 c -1.01465,1.18896 -2.16699,2.09473 -3.45654,2.71777 -1.29053,0.62354 -2.68945,0.93506 -4.19629,0.93506 -1.42041,0 -2.7251,-0.23926 -3.91309,-0.71777 -1.18945,-0.47803 -2.21777,-1.15234 -3.0874,-2.02197 -0.86963,-0.86963 -1.54395,-1.89795 -2.02197,-3.08691 -0.47852,-1.18848 -0.71729,-2.50732 -0.71729,-3.95703 0,-1.44922 0.23877,-2.76807 0.71729,-3.95703 0.47803,-1.18848 1.15234,-2.21777 2.02197,-3.0874 z"/><path d="m 617.1665,434.56165 h 7.08789 v 30.4375 h -7.08789 z"/><path d="m 640.95166,434.56165 -13.52295,30.4375 h 7.21777 l 2.71252,-6.52246 h 14.09851 l 2.7124,6.52246 h 7.39209 l -13.65332,-30.4375 h -6.95703 z m -1.36853,18.56689 4.82526,-11.60291 4.82513,11.60291 z"/><path d="m 664.73633,464.99915 h 22.26318 v -5.73975 h -15.17529 v -24.69775 h -7.08789 z"/><path d="m 711.2627,442.73596 c 0.86963,-0.86963 1.89795,-1.54346 3.0874,-2.02197 1.18799,-0.47803 2.49268,-0.71729 3.91309,-0.71729 1.50684,0 2.90576,0.3042 4.19629,0.91309 1.28955,0.60889 2.44189,1.50781 3.45654,2.6958 l 4.56592,-4.17432 c -1.4502,-1.76758 -3.24707,-3.10889 -5.39209,-4.02197 -2.14551,-0.91309 -4.53711,-1.36963 -7.17432,-1.36963 -2.34814,0 -4.52979,0.38477 -6.54443,1.15234 -2.01514,0.76855 -3.76855,1.86279 -5.26123,3.28271 -1.49316,1.4209 -2.65234,3.0874 -3.47852,5.00049 -0.82617,1.91357 -1.23926,4.01562 -1.23926,6.30518 0,2.29004 0.41309,4.3916 1.23926,6.30469 0.82617,1.91357 1.97852,3.58057 3.45703,5.00049 1.47803,1.4209 3.22412,2.51514 5.23926,3.2832 2.01465,0.76758 4.19629,1.15234 6.54443,1.15234 2.6665,0 5.07227,-0.46436 7.21777,-1.3916 2.14502,-0.92725 3.94189,-2.27539 5.39209,-4.04395 l -4.56592,-4.17432 c -1.01465,1.18896 -2.16699,2.09473 -3.45654,2.71777 -1.29053,0.62354 -2.68945,0.93506 -4.19629,0.93506 -1.42041,0 -2.7251,-0.23926 -3.91309,-0.71777 -1.18945,-0.47803 -2.21777,-1.15234 -3.0874,-2.02197 -0.86963,-0.86963 -1.54395,-1.89795 -2.02197,-3.08691 -0.47852,-1.18848 -0.71729,-2.50732 -0.71729,-3.95703 0,-1.44922 0.23877,-2.76807 0.71729,-3.95703 0.47803,-1.18848 1.15234,-2.21777 2.02197,-3.0874 z"/><path d="m 755.00537,455.19397 c 1.97119,-0.85498 3.49316,-2.10156 4.56592,-3.73975 1.07227,-1.63721 1.60889,-3.60156 1.60889,-5.8916 0,-3.42041 -1.17432,-6.10938 -3.52197,-8.06592 -2.34814,-1.95703 -5.63867,-2.93506 -9.87061,-2.93506 h -13.00146 v 30.4375 h 7.08789 v -8.52246 h 6.0874 c 0.10492,0 0.20007,-0.0111 0.30389,-0.0123 l 5.91388,8.53479 h 7.56641 l -6.78369,-9.78943 c 0.0139,-0.006 0.0297,-0.01 0.0435,-0.0157 z m -2.56543,-13.52295 c 1.10156,0.91309 1.65234,2.21045 1.65234,3.8916 0,1.68164 -0.55078,2.98584 -1.65234,3.91309 -1.10205,0.92822 -2.7251,1.3916 -4.86963,1.3916 h -5.69629 V 440.3009 h 5.69629 c 2.14453,0 3.76758,0.45703 4.86963,1.37012 z"/><path d="m 787.87842,446.77991 h -14.13184 v -6.56592 h 16.00147 v -5.65234 h -23.00244 v 30.4375 h 23.56738 v -5.65284 h -16.56641 v -7.04394 h 14.13184 z"/><path d="m 818.48975,436.45276 c -2.52197,-1.26074 -5.43506,-1.89111 -8.73975,-1.89111 h -13.82764 v 30.4375 H 809.75 c 3.30469,0 6.21777,-0.63037 8.73975,-1.8916 2.52197,-1.26074 4.49316,-3.02881 5.91357,-5.30469 1.41992,-2.27539 2.13086,-4.94971 2.13086,-8.02246 0,-3.07227 -0.71094,-5.74658 -2.13086,-8.02246 -1.42041,-2.27539 -3.3916,-4.04395 -5.91357,-5.30518 z m -0.32618,18.34961 c -0.82617,1.43506 -1.98584,2.53711 -3.47852,3.30469 -1.49316,0.76855 -3.25439,1.15234 -5.2832,1.15234 h -6.3916 v -18.9585 h 6.3916 c 2.02881,0 3.79004,0.38477 5.2832,1.15234 1.49268,0.76855 2.65234,1.86328 3.47852,3.2832 0.82617,1.42041 1.23926,3.10205 1.23926,5.04395 0,1.91309 -0.41309,3.5874 -1.23926,5.02197 z"/><path d="m 831.83887,434.56165 h 7.08789 v 30.4375 h -7.08789 z"/><path d="m 852.40625,440.3009 v 24.69825 h 7.04395 V 440.3009 h 9.74023 v -5.73925 h -26.52441 v 5.73925 z"/></g></svg></div>
+      <div>
+        <h1 class="display">Marketing</h1>
+        <p>One Guide in, every channel out. Nothing posts until it is approved here.</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="newBtn">+ New source</button>
+      <select id="toolSwitcher" class="btn">
+        <option value="">Switch tool…</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-hub/">Terminal</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-crm/">CRM</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-debt-deals/">Pipeline</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-prospect-engine/">CRE Prospector</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-bank-matrix/">Bank Matrix</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-treasury-audit/">Treasury Firepower Audit</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-debt-capacity-calc/">Debt Capacity Calculator</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-cre-loan-calc/">CRE Debt Calculator</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-slb-calculator/">SLB Calculator</option>
+      </select>
+      <button class="btn btn-ghost" id="refreshBtn">Refresh</button>
+      <button class="btn btn-ghost" id="signOutBtn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab" data-view="queue">Review<span class="ct" id="ct-queue">0</span></button>
+    <button class="tab" data-view="calendar">Calendar<span class="ct" id="ct-calendar">0</span></button>
+    <button class="tab" data-view="sources">Sources<span class="ct" id="ct-sources">0</span></button>
+    <button class="tab" data-view="results">Results</button>
+    <button class="tab" data-view="settings">Settings</button>
+  </div>
+
+  <div id="view"></div>
+</div>
+
+<div class="overlay" id="overlay" style="display:none;"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+  // ---------- constants ----------
+  var SUPABASE_URL = 'https://pdqywwxyibnapeytoalk.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_gAk4DGF0YlBxFQkcO92reQ_cb9H91lQ';
+  var REST = SUPABASE_URL + '/rest/v1';
+  var AUTH = SUPABASE_URL + '/auth/v1';
+  var FN = SUPABASE_URL + '/functions/v1';
+  var STORAGE = SUPABASE_URL + '/storage/v1';
+  var BUCKET = 'mkt-media';
+
+  var CHANNEL_ORDER = ['linkedin_company','linkedin_curtis','linkedin_armen','instagram','x','email_owners','email_partners'];
+  var CHANNEL_NAME = { linkedin_company:'LinkedIn: Cobalt page', linkedin_curtis:'LinkedIn: Curtis', linkedin_armen:'LinkedIn: Armen', instagram:'Instagram', x:'X', email_owners:'Email: clients and contacts', email_partners:'Email: COIs' };
+  var BUFFER_SERVICE = { linkedin_company:'linkedin', linkedin_curtis:'linkedin', linkedin_armen:'linkedin', instagram:'instagram', x:'twitter' };
+  var STATUS_LABEL = { draft:'Needs review', approved:'Approved', scheduled:'In Buffer / MailerLite', sent:'Sent', failed:'Failed', rejected:'Rejected', needs_finish:'Finish in MailerLite', in_review:'In review', generating:'Drafting', done:'Done' };
+  var WORDMARK_SVG = document.querySelector('.brand-mark svg') ? document.querySelector('.brand-mark svg').outerHTML : '';
+
+  // ---------- brand and compliance rules (mirror of the Edge Function rules.ts) ----------
+  var CHANNEL_LIMITS = { linkedin_company:3000, linkedin_curtis:3000, linkedin_armen:3000, instagram:2200, x:250, email_owners:20000, email_partners:20000 };
+  var PARTNER_CHANNELS = ['linkedin_company','linkedin_curtis','linkedin_armen','email_partners'];
+  function autoFix(t){ if(!t) return t; return t.replace(/\s*[—–]\s*/g, ', ').replace(/,\s*,/g, ',').replace(/ {2,}/g, ' ').trim(); }
+  function lint(channel, body, subject){
+    var f=[], text=(subject||'')+'\n'+(body||'');
+    if(/access\s+capital/i.test(text)) f.push({ level:'block', code:'restricted_name', message:'Mentions a restricted name. Remove it.' });
+    if(/debt\s+(relief|settlement|consolidation)/i.test(text)) f.push({ level:'block', code:'debt_relief', message:'Use "refinancing" or "replacement financing", never debt relief or settlement language.' });
+    if(/guarantee(d)?\s+(approval|funding|rate|financing)|approval\s+guaranteed/i.test(text)) f.push({ level:'block', code:'guarantee', message:'Promises approval or terms. Remove the guarantee.' });
+    if(/\bloan\s+broker\b/i.test(text)) f.push({ level:'warn', code:'broker_label', message:'Public copy does not describe Cobalt as a loan broker.' });
+    if(/[—–]/.test(text)) f.push({ level:'warn', code:'dash', message:'Contains an em or en dash. Auto fix will replace it.' });
+    if(/\b[A-Za-z]+-[A-Za-z]+\b/.test(text.replace(/https?:\/\/\S+/g,''))) f.push({ level:'warn', code:'hyphen', message:'Contains a hyphenated word. House style avoids dashes.' });
+    if(/\bcalifornia\b|\borange county\b|\bsouthern california\b|\bsocal\b|\bnewport beach\b/i.test(text)) f.push({ level:'warn', code:'geo', message:'California specific wording. Cobalt copy is nationwide.' });
+    if(PARTNER_CHANNELS.indexOf(channel)>=0 && /advice is free/i.test(text)) f.push({ level:'warn', code:'tagline_partner', message:'"Advice is free" lands badly with CPA and attorney partners.' });
+    if(channel==='instagram' && /click (the )?link|link below|https?:\/\//i.test(body||'')) f.push({ level:'warn', code:'ig_link', message:'Links are not clickable in Instagram captions. Say "link in bio".' });
+    var lim=CHANNEL_LIMITS[channel]; if(lim && (body||'').length>lim) f.push({ level:'block', code:'too_long', message:'Over the '+lim+' character limit for this channel ('+(body||'').length+').' });
+    if(/^email/.test(channel) && subject && subject.length>70) f.push({ level:'warn', code:'subject_long', message:'Subject is long and may be cut off on phones.' });
+    var first=((body||'').split(/[.!?\n]/)[0])||'';
+    if(/\b(SBA|ABL|asset based|factoring|MCA|sale leaseback|sale-leaseback|equipment finance)\b/i.test(first)) f.push({ level:'warn', code:'product_lead', message:'Leads with a product name. Lead with the business problem.' });
+    return f;
+  }
+  function hasBlock(f){ return f.some(function(x){ return x.level==='block'; }); }
+
+  var state = { session:null, view:'queue', content:[], posts:[], channels:[], config:{}, log:[], secrets:[], bufferChannels:null, mlGroups:null, edits:{}, busy:{} };
+
+  // ---------- helpers ----------
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(function(){ t.classList.remove('show'); }, 3200); }
+  function who(){ return (state.session&&state.session.email)||'Unknown'; }
+  function pad(n){ return (n<10?'0':'')+n; }
+  function fmtWhen(iso){ if(!iso) return 'Not scheduled'; var d=new Date(iso); if(isNaN(d)) return ''; return d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})+' '+d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+  function fmtTime(iso){ var d=new Date(iso); return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+  function dayKey(iso){ var d=new Date(iso); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function dayLabel(iso){ var d=new Date(iso); return d.toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'}); }
+  function toLocalInput(iso){ if(!iso) return ''; var d=new Date(iso); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes()); }
+  function fromLocalInput(v){ if(!v) return null; var d=new Date(v); return isNaN(d)?null:d.toISOString(); }
+  function pill(st){ return '<span class="pill st-'+esc(st)+'">'+esc(STATUS_LABEL[st]||st)+'</span>'; }
+  function content(id){ for(var i=0;i<state.content.length;i++) if(state.content[i].id===id) return state.content[i]; return null; }
+  function post(id){ for(var i=0;i<state.posts.length;i++) if(state.posts[i].id===id) return state.posts[i]; return null; }
+  function channel(k){ for(var i=0;i<state.channels.length;i++) if(state.channels[i].key===k) return state.channels[i]; return null; }
+  function postsOf(cid){ return state.posts.filter(function(p){ return p.content_id===cid; }).sort(function(a,b){ return CHANNEL_ORDER.indexOf(a.channel)-CHANNEL_ORDER.indexOf(b.channel); }); }
+  function cur(p){ var e=state.edits[p.id]||{}; return { body: e.body!=null?e.body:p.body, subject: e.subject!=null?e.subject:p.subject, scheduled_for: e.scheduled_for!==undefined?e.scheduled_for:p.scheduled_for, image_spec: e.image_spec||p.image_spec||{} }; }
+  function dirty(p){ return !!state.edits[p.id]; }
+
+  // ---------- auth (shared cobalt_session SSO) ----------
+  function sbHeaders(extra){ var h={ 'apikey':SUPABASE_KEY, 'Content-Type':'application/json' }; if(state.session&&state.session.access_token) h['Authorization']='Bearer '+state.session.access_token; return Object.assign(h, extra||{}); }
+  async function authCall(grant, body){
+    var res = await fetch(AUTH+'/token?grant_type='+grant, { method:'POST', headers:{ 'apikey':SUPABASE_KEY, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+    var data = await res.json(); if(!res.ok) throw new Error(data.error_description||data.msg||'Sign in failed'); return data;
+  }
+  function saveSession(d){ state.session={ access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in||3600)*1000, email:d.user&&d.user.email }; try{ localStorage.setItem('cobalt_session', JSON.stringify(state.session)); }catch(e){} }
+  function loadSession(){ try{ var r=localStorage.getItem('cobalt_session'); if(r) state.session=JSON.parse(r); }catch(e){ state.session=null; } }
+  function clearSession(){ state.session=null; try{ localStorage.removeItem('cobalt_session'); }catch(e){} }
+  async function ensureSession(){
+    if(!state.session) return false;
+    if(Date.now() < state.session.expires_at-60000) return true;
+    try{ var em=state.session.email; saveSession(await authCall('refresh_token', { refresh_token:state.session.refresh_token })); if(!state.session.email) state.session.email=em; return true; }
+    catch(e){ clearSession(); return false; }
+  }
+
+  // ---------- data access ----------
+  async function api(method, path, body, prefer){
+    await ensureSession();
+    var res = await fetch(REST+path, { method:method, headers:sbHeaders(prefer?{ 'Prefer':prefer }:{}), body: body?JSON.stringify(body):undefined });
+    if(res.status===401){ clearSession(); showAuth(); throw new Error('Session expired'); }
+    if(!res.ok){ var t=''; try{ t=await res.text(); }catch(e){} throw new Error(method+' '+path.split('?')[0]+' failed '+res.status+' '+t.slice(0,200)); }
+    if(res.status===204) return null;
+    var txt = await res.text(); return txt?JSON.parse(txt):null;
+  }
+  function get(path){ return api('GET', path); }
+  function patch(table, key, val, fields){ return api('PATCH', '/'+table+'?'+key+'=eq.'+encodeURIComponent(val), fields, 'return=minimal'); }
+  function rpc(name, args){ return api('POST', '/rpc/'+name, args||{}); }
+  function logEvent(p, event, detail){ return api('POST', '/mkt_log', { post_id:p?p.id:null, content_id:p?p.content_id:null, event:event, actor:who(), detail:detail||{} }, 'return=minimal').catch(function(){}); }
+  async function fn(name, body){
+    await ensureSession();
+    var res = await fetch(FN+'/'+name, { method:'POST', headers:sbHeaders(), body:JSON.stringify(body||{}) });
+    var out = {}; try{ out = await res.json(); }catch(e){}
+    if(!res.ok) throw new Error(out.error ? (out.error+(out.detail?': '+String(out.detail).slice(0,200):'')) : ('Request failed '+res.status));
+    return out;
+  }
+
+  async function refresh(){
+    var r = await Promise.all([
+      get('/mkt_content?select=*&status=neq.archived&order=created_at.desc&limit=200'),
+      get('/mkt_posts?select=*&order=scheduled_for.asc.nullslast&limit=1000'),
+      get('/mkt_channels?select=*&order=sort_order.asc'),
+      get('/mkt_config?select=key,value'),
+    ]);
+    state.content=r[0]||[]; state.posts=r[1]||[]; state.channels=r[2]||[];
+    state.config={}; (r[3]||[]).forEach(function(x){ state.config[x.key]=x.value; });
+    render();
+  }
+
+  // ---------- Instagram card ----------
+  var CARD_W=1080, CARD_H=1350;
+  function wrapLines(ctx, text, maxW){
+    var words=String(text||'').split(/\s+/), lines=[], line='';
+    words.forEach(function(w){ var t=line?line+' '+w:w; if(ctx.measureText(t).width>maxW && line){ lines.push(line); line=w; } else line=t; });
+    if(line) lines.push(line); return lines;
+  }
+  function svgImage(){
+    return new Promise(function(resolve){
+      if(!WORDMARK_SVG){ resolve(null); return; }
+      var img=new Image(); img.onload=function(){ resolve(img); }; img.onerror=function(){ resolve(null); };
+      img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(WORDMARK_SVG.replace('<svg ','<svg width="745" height="225" '));
+    });
+  }
+  async function drawCard(canvas, spec){
+    spec=spec||{};
+    try{ await Promise.all([document.fonts.load('700 80px Sora'), document.fonts.load('600 30px "IBM Plex Mono"'), document.fonts.load('600 44px Sora')]); }catch(e){}
+    canvas.width=CARD_W; canvas.height=CARD_H;
+    var c=canvas.getContext('2d');
+    c.fillStyle='#f6f8fb'; c.fillRect(0,0,CARD_W,CARD_H);
+    // structure: navy rail on the left, cobalt rule under the kicker
+    c.fillStyle='#002347'; c.fillRect(0,0,24,CARD_H);
+    var x=110, y=190, maxW=CARD_W-x-100;
+    var kicker=String(spec.kicker||'').toUpperCase();
+    if(kicker){
+      c.fillStyle='#0047AB'; c.font='600 30px "IBM Plex Mono", monospace';
+      if('letterSpacing' in c) c.letterSpacing='5px';
+      c.fillText(kicker, x, y);
+      if('letterSpacing' in c) c.letterSpacing='0px';
+      c.fillRect(x, y+30, 90, 6);
+      y+=120;
+    }
+    var size=86; c.font='700 '+size+'px Sora, sans-serif';
+    var lines=wrapLines(c, spec.headline||'', maxW);
+    while(lines.length>6 && size>56){ size-=6; c.font='700 '+size+'px Sora, sans-serif'; lines=wrapLines(c, spec.headline||'', maxW); }
+    c.fillStyle='#002347';
+    lines.forEach(function(l){ y+=size*1.12; c.fillText(l, x, y); });
+    if(spec.stat){
+      y+=80; c.font='600 44px Sora, sans-serif';
+      var sl=wrapLines(c, spec.stat, maxW-80), boxH=sl.length*58+56;
+      c.fillStyle='#0047AB'; c.fillRect(x, y, maxW, boxH);
+      c.fillStyle='#ffffff'; var sy=y+28;
+      sl.forEach(function(l){ sy+=48; c.fillText(l, x+40, sy); });
+    }
+    var img=await svgImage();
+    if(img){ var w=430, h=w*225/745; c.drawImage(img, x-20, CARD_H-h-90, w, h); }
+    c.fillStyle='#64748b'; c.font='500 24px "IBM Plex Mono", monospace';
+    var site='cobaltcommercialcredit.com', sw=c.measureText(site).width;
+    c.fillText(site, CARD_W-100-sw, CARD_H-118);
+    return canvas;
+  }
+  async function uploadCard(p){
+    var spec=cur(p).image_spec;
+    if(!spec || !spec.headline) throw new Error('The Instagram card needs a headline');
+    var cv=document.createElement('canvas'); await drawCard(cv, spec);
+    var blob=await new Promise(function(r){ cv.toBlob(r, 'image/png'); });
+    var path=p.content_id+'/'+p.id+'-'+Date.now()+'.png';
+    await ensureSession();
+    var res=await fetch(STORAGE+'/object/'+BUCKET+'/'+path, { method:'POST', headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+state.session.access_token, 'Content-Type':'image/png', 'x-upsert':'true' }, body:blob });
+    if(!res.ok){ var t=''; try{ t=await res.text(); }catch(e){} throw new Error('Image upload failed '+res.status+' '+t.slice(0,120)); }
+    return STORAGE+'/object/public/'+BUCKET+'/'+path;
+  }
+
+  // ---------- rendering ----------
+  function counts(){
+    var c={ draft:0, approved:0, scheduled:0, sent30:0, failed:0, finish:0 };
+    var since=Date.now()-30*86400000;
+    state.posts.forEach(function(p){
+      if(p.status==='draft') c.draft++;
+      else if(p.status==='approved') c.approved++;
+      else if(p.status==='scheduled') c.scheduled++;
+      else if(p.status==='failed') c.failed++;
+      else if(p.status==='needs_finish') c.finish++;
+      if(p.status==='sent' && p.sent_at && new Date(p.sent_at).getTime()>=since) c.sent30++;
+    });
+    return c;
+  }
+  function renderSummary(){
+    var c=counts(), on=state.channels.filter(function(x){ return x.enabled && x.external_ref; }).length;
+    $('summary').innerHTML=
+      '<div class="cell" data-go="queue"><div class="num '+(c.draft?'warn':'')+'">'+c.draft+'</div><div class="lbl">Waiting for you</div></div>'+
+      '<div class="cell" data-go="calendar"><div class="num accent">'+(c.approved+c.scheduled)+'</div><div class="lbl">Scheduled</div></div>'+
+      '<div class="cell" data-go="results"><div class="num good">'+c.sent30+'</div><div class="lbl">Sent, 30 days</div></div>'+
+      '<div class="cell" data-go="calendar"><div class="num '+((c.failed+c.finish)?'bad':'')+'">'+(c.failed+c.finish)+'</div><div class="lbl">Needs attention</div></div>'+
+      '<div class="cell" data-go="settings"><div class="num '+(on<CHANNEL_ORDER.length?'warn':'good')+'">'+on+'/'+CHANNEL_ORDER.length+'</div><div class="lbl">Channels live</div></div>';
+    $('ct-queue').textContent=c.draft;
+    $('ct-calendar').textContent=c.approved+c.scheduled+c.failed+c.finish;
+    $('ct-sources').textContent=state.content.length;
+  }
+  function render(){
+    renderSummary();
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.view===state.view); });
+    var v=$('view');
+    if(state.view==='queue') v.innerHTML=renderQueue();
+    else if(state.view==='calendar') v.innerHTML=renderCalendar();
+    else if(state.view==='sources') v.innerHTML=renderSources();
+    else if(state.view==='results') v.innerHTML=renderResults();
+    else if(state.view==='settings'){ v.innerHTML=renderSettings(); loadSecretStatus(); }
+    if(state.view==='queue') paintCards();
+  }
+
+  function setupBanner(){
+    var on=state.channels.filter(function(x){ return x.enabled && x.external_ref; }).length;
+    if(on) return '';
+    return '<div class="banner blue">No channels are connected yet. You can draft and approve now; approved posts wait here until their channel is connected in <a href="#" data-go="settings">Settings</a>.</div>';
+  }
+
+  function renderQueue(){
+    var items=state.content.filter(function(c){ return c.status==='generating' || postsOf(c.id).some(function(p){ return p.status==='draft'; }); });
+    if(!items.length){
+      return setupBanner()+'<div class="empty"><div class="display">Nothing waiting for review</div><p>Add a source, usually a website Guide, and the engine drafts a post for every channel. They land here for you to approve.</p><button class="btn btn-primary" data-act="new">+ New source</button></div>';
+    }
+    return setupBanner()+items.map(function(c){
+      var ps=postsOf(c.id).filter(function(p){ return p.status==='draft'; });
+      var clean=ps.filter(function(p){ return !hasBlock(lint(p.channel, cur(p).body, cur(p).subject)); }).length;
+      var head='<div class="group-head"><div><h3>'+esc(c.title)+'</h3><div class="sub">'+esc(c.source_type==='guide'?'Guide':c.source_type==='deal_story'?'Deal story':'Note')+' · '+esc(c.audience==='both'?'Owners and partners':c.audience==='owner'?'Owners':'Partners')+(c.source_url?' · <a href="'+esc(c.source_url)+'" target="_blank" rel="noopener">source</a>':'')+'</div></div>'+
+        '<div class="actions">'+(c.status==='generating'?'<span class="pill st-generating"><span class="busy"></span> Drafting</span>':'<button class="btn btn-sm" data-act="redraft-all" data-id="'+esc(c.id)+'">Redraft all</button>'+(clean?'<button class="btn btn-sm btn-green" data-act="approve-all" data-id="'+esc(c.id)+'">Approve all clean ('+clean+')</button>':''))+'</div></div>';
+      if(c.generation_error) head+='<div class="banner amber">Last draft attempt failed: '+esc(c.generation_error)+'</div>';
+      return '<div class="group">'+head+ps.map(renderPost).join('')+'</div>';
+    }).join('');
+  }
+
+  function renderPost(p){
+    var v=cur(p), flags=lint(p.channel, v.body, v.subject), isIG=p.channel==='instagram', isEmail=/^email/.test(p.channel);
+    var lim=CHANNEL_LIMITS[p.channel], len=(v.body||'').length, ch=channel(p.channel), live=ch&&ch.enabled&&ch.external_ref;
+    var h='<div class="post" id="post-'+esc(p.id)+'">';
+    h+='<div class="post-head"><span class="chan">'+esc(CHANNEL_NAME[p.channel]||p.channel)+'</span>'+(live?'':'<span class="pill st-needs_finish" title="Connect this channel in Settings">Not connected</span>')+'<span class="spacer"></span>'+
+       '<span class="meta-row">Goes out <input type="datetime-local" data-field="scheduled_for" data-id="'+esc(p.id)+'" value="'+esc(toLocalInput(v.scheduled_for))+'"></span></div>';
+    h+='<div class="post-body'+(isIG?' with-card':'')+'"><div>';
+    if(isEmail) h+='<input class="subj" data-field="subject" data-id="'+esc(p.id)+'" value="'+esc(v.subject||'')+'" placeholder="Subject line">';
+    h+='<textarea data-field="body" data-id="'+esc(p.id)+'">'+esc(v.body||'')+'</textarea>';
+    h+='<div class="meta-row" style="justify-content:space-between;margin-top:4px"><span class="count'+(lim&&len>lim?' over':'')+'" id="count-'+esc(p.id)+'">'+len+(lim&&lim<5000?' / '+lim:'')+' characters</span>'+(p.link_url?'<span class="linkline" title="Tracked link added when posted">+ '+esc(p.link_url.replace(/^https?:\/\//,'').split('?')[0])+' (tracked)</span>':'')+'</div>';
+    h+='<div class="flags" id="flags-'+esc(p.id)+'" style="margin-top:8px">'+renderFlags(flags)+'</div>';
+    h+='</div>';
+    if(isIG){
+      var s=v.image_spec||{};
+      h+='<div class="cardbox"><canvas data-card="'+esc(p.id)+'"></canvas>'+
+        '<div class="fb"><input data-spec="kicker" data-id="'+esc(p.id)+'" value="'+esc(s.kicker||'')+'" placeholder="Label, e.g. CASH FLOW">'+
+        '<input data-spec="headline" data-id="'+esc(p.id)+'" value="'+esc(s.headline||'')+'" placeholder="Headline">'+
+        '<input data-spec="stat" data-id="'+esc(p.id)+'" value="'+esc(s.stat||'')+'" placeholder="Fact from the source (optional)"></div></div>';
+    }
+    h+='</div>';
+    h+='<div class="post-foot"><button class="btn btn-sm btn-danger" data-act="reject" data-id="'+esc(p.id)+'">Reject</button>'+
+       '<button class="btn btn-sm" data-act="redraft" data-id="'+esc(p.id)+'">Redraft</button>'+
+       (flags.some(function(f){ return f.code==='dash'; })?'<button class="btn btn-sm" data-act="fix" data-id="'+esc(p.id)+'">Fix dashes</button>':'')+
+       '<span class="spacer"></span>'+(dirty(p)?'<button class="btn btn-sm" data-act="save" data-id="'+esc(p.id)+'">Save edits</button>':'')+
+       '<button class="btn btn-sm btn-green" data-act="approve" data-id="'+esc(p.id)+'"'+(hasBlock(flags)?' disabled title="Fix the red items first"':'')+'>Approve</button></div>';
+    return h+'</div>';
+  }
+  function renderFlags(flags){ return flags.map(function(f){ return '<div class="flag '+f.level+'">'+(f.level==='block'?'Must fix: ':'')+esc(f.message)+'</div>'; }).join(''); }
+  function paintCards(){ document.querySelectorAll('canvas[data-card]').forEach(function(cv){ var p=post(cv.dataset.card); if(p) drawCard(cv, cur(p).image_spec); }); }
+
+  function renderCalendar(){
+    var list=state.posts.filter(function(p){ return ['approved','scheduled','failed','needs_finish','sent'].indexOf(p.status)>=0; });
+    var attention=list.filter(function(p){ return p.status==='failed' || p.status==='needs_finish'; });
+    var upcoming=list.filter(function(p){ return p.status==='approved' || p.status==='scheduled'; }).sort(function(a,b){ return (a.scheduled_for||'')<(b.scheduled_for||'')?-1:1; });
+    var recent=list.filter(function(p){ return p.status==='sent'; }).sort(function(a,b){ return (b.sent_at||'')<(a.sent_at||'')?-1:1; }).slice(0,20);
+    if(!list.length) return setupBanner()+'<div class="empty"><div class="display">Nothing scheduled yet</div><p>Approved posts show up here by day, with what is waiting, what went out, and anything that needs you.</p></div>';
+    var h=setupBanner();
+    if(attention.length){ h+='<div class="day">Needs attention</div>'+attention.map(agendaItem).join(''); }
+    var lastDay='';
+    upcoming.forEach(function(p){ var k=p.scheduled_for?dayKey(p.scheduled_for):'none'; if(k!==lastDay){ h+='<div class="day">'+(p.scheduled_for?esc(dayLabel(p.scheduled_for)):'Unscheduled')+'</div>'; lastDay=k; } h+=agendaItem(p); });
+    if(recent.length){ h+='<div class="day">Recently sent</div>'+recent.map(agendaItem).join(''); }
+    return h;
+  }
+  function agendaItem(p){
+    var c=content(p.content_id), acts='';
+    if(p.status==='approved'){ acts='<button class="btn btn-sm" data-act="unapprove" data-id="'+esc(p.id)+'">Pull back</button><button class="btn btn-sm btn-primary" data-act="publish-now" data-id="'+esc(p.id)+'">Post now</button>'; }
+    else if(p.status==='failed'){ acts='<button class="btn btn-sm" data-act="unapprove" data-id="'+esc(p.id)+'">Edit</button><button class="btn btn-sm btn-primary" data-act="retry" data-id="'+esc(p.id)+'">Retry</button>'; }
+    else if(p.status==='needs_finish'){ acts='<button class="btn btn-sm" data-act="copy-email" data-id="'+esc(p.id)+'">Copy email text</button>'+(p.external_url?'<a class="btn btn-sm btn-primary" href="'+esc(p.external_url)+'" target="_blank" rel="noopener">Open MailerLite</a>':''); }
+    else if(p.status==='scheduled'){ acts='<span class="sub">Handed off. To cancel, delete it in '+(/^email/.test(p.channel)?'MailerLite':'Buffer')+'.</span>'; }
+    var when=p.status==='sent'?(p.sent_at||p.scheduled_for):p.scheduled_for;
+    return '<div class="agenda"><div class="when">'+(when?esc(fmtTime(when)):'')+'</div><div class="main"><div><span class="chan">'+esc(CHANNEL_NAME[p.channel]||p.channel)+'</span> '+pill(p.status)+'</div>'+
+      '<div class="excerpt">'+esc((p.subject?p.subject+': ':'')+(p.body||'').replace(/\s+/g,' ').slice(0,180))+'</div>'+
+      (c?'<div class="sub">'+esc(c.title)+(p.status==='sent'&&when?' · '+esc(fmtWhen(when)):'')+'</div>':'')+
+      (p.error?'<div class="err">'+esc(p.error)+'</div>':'')+
+      (p.status==='needs_finish'?'<div class="sub" style="margin-top:4px">The campaign is set up in MailerLite with subject, sender and list. Paste the email text into its editor and schedule it there. It turns to Sent here on its own.</div>':'')+
+      '</div><div class="acts">'+acts+'</div></div>';
+  }
+
+  function renderSources(){
+    if(!state.content.length) return '<div class="empty"><div class="display">No sources yet</div><p>A source is the long piece everything else is cut from, usually an approved website Guide.</p><button class="btn btn-primary" data-act="new">+ New source</button></div>';
+    return '<div class="tablewrap"><table><thead><tr><th>Source</th><th>Audience</th><th>Status</th><th>Posts</th><th>Added</th><th></th></tr></thead><tbody>'+
+      state.content.map(function(c){
+        var ps=postsOf(c.id), sent=ps.filter(function(p){ return p.status==='sent'; }).length;
+        return '<tr><td><div style="font-weight:600">'+esc(c.title)+'</div>'+(c.source_url?'<div class="sub"><a href="'+esc(c.source_url)+'" target="_blank" rel="noopener">'+esc(c.source_url.replace(/^https?:\/\//,''))+'</a></div>':'')+'</td>'+
+          '<td>'+esc(c.audience==='both'?'Both':c.audience==='owner'?'Owners':'Partners')+'</td><td>'+pill(c.status)+'</td><td class="mono">'+sent+' sent / '+ps.length+'</td><td class="mono">'+esc(new Date(c.created_at).toLocaleDateString())+'</td>'+
+          '<td style="white-space:nowrap"><button class="btn btn-sm" data-act="edit-source" data-id="'+esc(c.id)+'">Edit</button> <button class="btn btn-sm" data-act="redraft-all" data-id="'+esc(c.id)+'">Draft again</button> <button class="btn btn-sm btn-ghost" data-act="archive" data-id="'+esc(c.id)+'">Archive</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
+  function renderResults(){
+    var since90=Date.now()-90*86400000, by={};
+    CHANNEL_ORDER.forEach(function(k){ by[k]={ sent:0, failed:0 }; });
+    state.posts.forEach(function(p){ if(!by[p.channel]) return; if(p.status==='sent' && p.sent_at && new Date(p.sent_at).getTime()>=since90) by[p.channel].sent++; if(p.status==='failed') by[p.channel].failed++; });
+    var h='<div class="panel"><h3>Output, last 90 days</h3><p>Posts that actually went out, by channel. Every link carries tracking tags (utm_campaign is the source title, utm_content names the channel and post), so website visits show up by post in your site analytics.</p>'+
+      '<div class="tablewrap"><table><thead><tr><th>Channel</th><th>Sent</th><th>Failed</th></tr></thead><tbody>'+
+      CHANNEL_ORDER.map(function(k){ return '<tr><td>'+esc(CHANNEL_NAME[k])+'</td><td class="mono">'+by[k].sent+'</td><td class="mono">'+by[k].failed+'</td></tr>'; }).join('')+'</tbody></table></div></div>';
+    h+='<div class="panel"><h3>Record of everything</h3><p>Every draft, approval, edit, hand off and send, with who did it. Export this for your advertising records.</p>'+
+      '<div class="actions" style="margin-bottom:12px"><button class="btn btn-sm" data-act="load-log">Load record</button><button class="btn btn-sm" data-act="export-log">Export CSV</button></div><div id="logBox"></div></div>';
+    return h;
+  }
+
+  function renderSettings(){
+    var cfg=state.config, t=cfg.default_times||{}, from=cfg.email_from||{};
+    var h='<div class="panel"><h3>Account keys</h3><p>Paste each key once. Keys are stored encrypted and can never be read back from this page, only replaced.</p>'+
+      '<div class="keyrow"><span class="name">Buffer</span><input type="password" id="key-BUFFER_API_KEY" placeholder="Paste Buffer API key" autocomplete="off"><button class="btn btn-sm btn-primary" data-act="save-key" data-name="BUFFER_API_KEY">Save</button><span id="ks-BUFFER_API_KEY" class="sub"></span></div>'+
+      '<div class="keyrow"><span class="name">MailerLite</span><input type="password" id="key-MAILERLITE_API_KEY" placeholder="Paste MailerLite API key" autocomplete="off"><button class="btn btn-sm btn-primary" data-act="save-key" data-name="MAILERLITE_API_KEY">Save</button><span id="ks-MAILERLITE_API_KEY" class="sub"></span></div>'+
+      '<div class="actions"><button class="btn btn-sm" data-act="test-keys">Test connections</button><span id="testOut" class="sub"></span></div></div>';
+
+    h+='<div class="panel"><h3>Channels</h3><p>Link each channel to its account. Load the lists after your keys are saved. A channel only posts when it is switched on and linked.</p>'+
+      '<div class="actions" style="margin-bottom:8px"><button class="btn btn-sm" data-act="load-buffer">Load Buffer channels</button><button class="btn btn-sm" data-act="load-ml">Load MailerLite groups</button></div>';
+    CHANNEL_ORDER.forEach(function(k){
+      var ch=channel(k)||{ key:k }, picker;
+      if(/^email/.test(k)){
+        var chosen=String(ch.external_ref||'').split(',').filter(Boolean);
+        if(state.mlGroups){ picker='<div class="multi">'+(state.mlGroups.length?state.mlGroups.map(function(g){ return '<label><input type="checkbox" data-mlgroup="'+esc(k)+'" value="'+esc(g.id)+'"'+(chosen.indexOf(g.id)>=0?' checked':'')+'> '+esc(g.name)+' <span class="sub">('+esc(g.active_count)+')</span></label>'; }).join(''):'<span class="sub">No groups in MailerLite yet</span>')+'</div>'; }
+        else picker='<span class="sub">'+(chosen.length?chosen.length+' group(s) linked':'Not linked')+'. Load MailerLite groups to change.</span>';
+      } else {
+        if(state.bufferChannels){ var want=BUFFER_SERVICE[k]; picker='<select data-bufferch="'+esc(k)+'"><option value="">Not linked</option>'+state.bufferChannels.filter(function(b){ return !want || String(b.service).toLowerCase().indexOf(want)>=0 || (want==='twitter' && /x/i.test(b.service)); }).map(function(b){ return '<option value="'+esc(b.id)+'"'+(b.id===ch.external_ref?' selected':'')+'>'+esc(b.name)+' ('+esc(b.service)+')</option>'; }).join('')+'</select>'; }
+        else picker='<span class="sub">'+(ch.external_ref?'Linked':'Not linked')+'. Load Buffer channels to change.</span>';
+      }
+      h+='<div class="chrow"><div><div style="font-weight:600">'+esc(CHANNEL_NAME[k])+'</div><div class="sub">'+esc(ch.audience==='partner'?'Referral partners':ch.audience==='owner'?'Owners':'Everyone')+'</div></div>'+
+        '<label class="switch" title="On or off"><input type="checkbox" data-enable="'+esc(k)+'"'+(ch.enabled?' checked':'')+'><span></span></label><div>'+picker+'</div></div>';
+    });
+    h+='</div>';
+
+    h+='<div class="panel"><h3>Timing and email</h3><p>Default send times for new drafts (Pacific). Each source rolls out over four business days: company page and X first, personal profiles and Instagram after, email last.</p>'+
+      '<div class="grid4"><div class="fb"><label>LinkedIn</label><input type="time" id="t-linkedin" value="'+esc(t.linkedin||'08:15')+'"></div><div class="fb"><label>Instagram</label><input type="time" id="t-instagram" value="'+esc(t.instagram||'11:30')+'"></div><div class="fb"><label>X</label><input type="time" id="t-x" value="'+esc(t.x||'09:00')+'"></div><div class="fb"><label>Email</label><input type="time" id="t-email" value="'+esc(t.email||'07:30')+'"></div></div>'+
+      '<div class="grid2" style="margin-top:12px"><div class="fb"><label>Email from name</label><input id="from-name" value="'+esc(from.name||'Cobalt Commercial Credit')+'"></div><div class="fb"><label>Email from address (must be verified in MailerLite)</label><input id="from-address" value="'+esc(from.address||'contact@cobaltcommercialcredit.com')+'"></div></div>'+
+      '<div class="grid2" style="margin-top:12px"><div class="fb"><label>Website base for links</label><input id="site-base" value="'+esc(cfg.site_base_url||'https://cobaltcommercialcredit.com')+'"></div>'+
+      '<div class="fb"><label>MailerLite plan</label><select id="ml-html"><option value="false"'+(cfg.mailerlite_custom_html===true?'':' selected')+'>Free or Growing: I paste the email text in MailerLite</option><option value="true"'+(cfg.mailerlite_custom_html===true?' selected':'')+'>Advanced: send the full email automatically</option></select></div></div>'+
+      '<div class="actions" style="margin-top:14px"><button class="btn btn-primary btn-sm" data-act="save-settings">Save timing and email</button></div></div>';
+    return h;
+  }
+  async function loadSecretStatus(){
+    try{ var s=await rpc('mkt_secret_status'); (s||[]).forEach(function(x){ var el=$('ks-'+x.name); if(el) el.innerHTML=x.is_set?'<span class="ok">Saved</span> '+esc(new Date(x.updated_at).toLocaleDateString()):'<span class="no">Not set</span>'; }); }catch(e){}
+  }
+
+  // ---------- modals ----------
+  function openModal(html){ $('modal').innerHTML=html; $('overlay').style.display='flex'; }
+  function closeModal(){ $('overlay').style.display='none'; $('modal').innerHTML=''; }
+  function val(id){ var el=$(id); return el?String(el.value||'').trim():''; }
+
+  function openSource(c){
+    c=c||{};
+    openModal('<div class="modal-head"><div><h2 class="display">'+(c.id?'Edit source':'New source')+'</h2><p>Paste the full Guide text, or just give its web address and the engine reads the page.</p></div><button class="x" data-act="close">&times;</button></div>'+
+      '<div class="modal-body">'+
+      '<div class="fb"><label>Title</label><input id="sTitle" value="'+esc(c.title||'')+'" placeholder="e.g. When a bank says no to a line of credit"></div>'+
+      '<div class="fb"><label>Web address of the Guide (the link every post points to)</label><input id="sUrl" value="'+esc(c.source_url||'')+'" placeholder="https://cobaltcommercialcredit.com/guides/..."></div>'+
+      '<div class="grid2"><div class="fb"><label>Type</label><select id="sType"><option value="guide"'+(c.source_type==='guide'||!c.source_type?' selected':'')+'>Website Guide</option><option value="deal_story"'+(c.source_type==='deal_story'?' selected':'')+'>Deal story (anonymized)</option><option value="note"'+(c.source_type==='note'?' selected':'')+'>Short note or idea</option></select></div>'+
+      '<div class="fb"><label>Main audience</label><select id="sAud"><option value="owner"'+(c.audience==='owner'||!c.audience?' selected':'')+'>Business owners</option><option value="partner"'+(c.audience==='partner'?' selected':'')+'>Referral partners</option><option value="both"'+(c.audience==='both'?' selected':'')+'>Both</option></select></div></div>'+
+      '<div class="fb"><label>Text (leave blank to read it from the web address)</label><textarea id="sBody" style="min-height:220px">'+esc(c.body||'')+'</textarea></div>'+
+      '<div class="sub">Deal stories: no client names, and only facts cleared for public use.</div>'+
+      '</div><div class="modal-foot"><button class="btn btn-ghost" data-act="close">Cancel</button><button class="btn btn-primary" data-act="save-source" data-id="'+esc(c.id||'')+'">'+(c.id?'Save':'Save and draft posts')+'</button></div>');
+  }
+
+  function openRedraft(ids, label, contentId){
+    openModal('<div class="modal-head"><div><h2 class="display">Redraft '+esc(label)+'</h2><p>Optional direction for this pass. Leave blank for a fresh take.</p></div><button class="x" data-act="close">&times;</button></div>'+
+      '<div class="modal-body"><div class="fb"><label>Direction</label><textarea id="rdNote" placeholder="e.g. shorter, lead with the cash crunch after a big contract award"></textarea></div></div>'+
+      '<div class="modal-foot"><button class="btn btn-ghost" data-act="close">Cancel</button><button class="btn btn-primary" data-act="do-redraft" data-content="'+esc(contentId)+'" data-channels="'+esc(ids.join(','))+'">Redraft</button></div>');
+  }
+
+  // ---------- actions ----------
+  async function draft(contentId, channels, instruction){
+    var c=content(contentId); if(c){ c.status='generating'; c.generation_error=null; }
+    if(state.view!=='queue'){ state.view='queue'; }
+    render();
+    toast('Drafting posts. This takes about half a minute.');
+    try{
+      var r=await fn('marketing-draft', { content_id:contentId, channels:channels||undefined, instruction:instruction||undefined });
+      state.edits={};
+      await refresh();
+      toast(r.drafted+' drafts ready'+(r.missing&&r.missing.length?'. Missing: '+r.missing.map(function(m){ return CHANNEL_NAME[m]||m; }).join(', '):''));
+    }catch(e){ await refresh(); toast('Drafting failed: '+e.message); }
+  }
+
+  async function saveSource(id){
+    var title=val('sTitle'), url=val('sUrl'), body=($('sBody').value||'').trim();
+    if(!title){ toast('Give it a title'); return; }
+    if(!body && !url){ toast('Paste the text or give the web address'); return; }
+    if(url && !/^https:\/\/(www\.)?cobaltcommercialcredit\.com\//i.test(url)){ toast('The web address should be a page on cobaltcommercialcredit.com'); return; }
+    var row={ title:title, source_url:url||null, source_type:val('sType'), audience:val('sAud'), body:body };
+    try{
+      if(id){ await patch('mkt_content', 'id', id, row); closeModal(); await refresh(); toast('Saved'); return; }
+      row.created_by=who();
+      var ins=await api('POST', '/mkt_content', row, 'return=representation');
+      closeModal(); await refresh(); draft(ins[0].id);
+    }catch(e){ toast('Save failed: '+e.message); }
+  }
+
+  async function saveEdits(p, extra){
+    var e=state.edits[p.id]||{}, fields={};
+    if(e.body!=null) fields.body=e.body;
+    if(e.subject!=null) fields.subject=e.subject;
+    if(e.scheduled_for!==undefined) fields.scheduled_for=e.scheduled_for;
+    if(e.image_spec) fields.image_spec=e.image_spec;
+    Object.assign(fields, extra||{});
+    var v=cur(p); fields.lint_flags=lint(p.channel, fields.body!=null?fields.body:v.body, fields.subject!=null?fields.subject:v.subject);
+    await patch('mkt_posts', 'id', p.id, fields);
+    if(e.body!=null || e.subject!=null) logEvent(p, 'edited', { by_hand:true });
+    delete state.edits[p.id];
+    Object.assign(p, fields);
+  }
+
+  async function approve(p, quiet){
+    var v=cur(p), flags=lint(p.channel, v.body, v.subject);
+    if(hasBlock(flags)){ if(!quiet) toast('Fix the red items first'); return false; }
+    if(!v.scheduled_for){ if(!quiet) toast('Set a time first'); return false; }
+    var extra={ status:'approved', approved_by:who(), approved_at:new Date().toISOString(), error:null };
+    if(p.channel==='instagram'){ extra.image_url=await uploadCard(p); }
+    await saveEdits(p, extra);
+    logEvent(p, 'approved', { scheduled_for:p.scheduled_for });
+    return true;
+  }
+
+  async function onAction(btn){
+    var act=btn.dataset.act, id=btn.dataset.id, p=id?post(id):null;
+    try{
+      if(act==='close'){ closeModal(); return; }
+      if(act==='new'){ openSource(); return; }
+      if(act==='edit-source'){ openSource(content(id)); return; }
+      if(act==='save-source'){ btn.disabled=true; await saveSource(id||null); btn.disabled=false; return; }
+      if(act==='archive'){ if(!confirm('Archive this source? Its posts stay in the record.')) return; await patch('mkt_content','id',id,{ status:'archived' }); await refresh(); toast('Archived'); return; }
+      if(act==='redraft-all'){ var c=content(id); openRedraft(postsOf(id).filter(function(x){ return x.status==='draft'||x.status==='rejected'; }).map(function(x){ return x.channel; }), 'every open post', id); if(c && !postsOf(id).length) { closeModal(); draft(id); } return; }
+      if(act==='redraft'){ openRedraft([p.channel], CHANNEL_NAME[p.channel], p.content_id); return; }
+      if(act==='do-redraft'){ var chs=(btn.dataset.channels||'').split(',').filter(Boolean); var note=($('rdNote').value||'').trim(); closeModal(); draft(btn.dataset.content, chs.length?chs:undefined, note); return; }
+      if(act==='fix'){ var v=cur(p); state.edits[p.id]=Object.assign({}, state.edits[p.id]||{}, { body:autoFix(v.body), subject:v.subject?autoFix(v.subject):v.subject }); render(); return; }
+      if(act==='save'){ btn.disabled=true; await saveEdits(p); render(); toast('Saved'); return; }
+      if(act==='reject'){ await saveEdits(p, { status:'rejected' }); logEvent(p,'rejected'); render(); toast('Rejected'); return; }
+      if(act==='approve'){ btn.disabled=true; btn.innerHTML='<span class="busy"></span> Approving'; if(await approve(p)){ render(); toast('Approved for '+fmtWhen(p.scheduled_for)); } else { btn.disabled=false; btn.textContent='Approve'; } return; }
+      if(act==='approve-all'){
+        btn.disabled=true; btn.innerHTML='<span class="busy"></span> Approving';
+        var ok=0, skipped=0, list=postsOf(id).filter(function(x){ return x.status==='draft'; });
+        for(var i=0;i<list.length;i++){ try{ if(await approve(list[i], true)) ok++; else skipped++; }catch(e){ skipped++; } }
+        render(); toast(ok+' approved'+(skipped?', '+skipped+' still need you':'')); return;
+      }
+      if(act==='unapprove'){ await patch('mkt_posts','id',p.id,{ status:'draft', external_id:null, error:null }); logEvent(p,'pulled_back'); await refresh(); state.view='queue'; render(); toast('Back in Review'); return; }
+      if(act==='retry'){ await patch('mkt_posts','id',p.id,{ status:'approved', external_id:null, error:null }); logEvent(p,'retry'); btn.disabled=true; var r=await fn('marketing-publish',{ action:'publish_now', post_id:p.id }).catch(function(e){ return { ok:false, error:e.message }; }); await refresh(); toast(r.ok?'Handed off':'Still failing: '+(r.error||'')); return; }
+      if(act==='publish-now'){ if(!confirm('Post this now instead of at its scheduled time?')) return; btn.disabled=true; var r2=await fn('marketing-publish',{ action:'publish_now', post_id:p.id }).catch(function(e){ return { ok:false, error:e.message }; }); await refresh(); toast(r2.ok?'Posted':'Failed: '+(r2.error||'')); return; }
+      if(act==='copy-email'){ var txt=(p.body||'')+(p.link_url?'\n\nRead the full guide: '+p.link_url:''); await navigator.clipboard.writeText(txt); toast('Email text copied'); return; }
+      if(act==='save-key'){ var name=btn.dataset.name, k=($('key-'+name).value||'').trim(); if(!k){ toast('Paste the key first'); return; } await rpc('mkt_set_secret', { p_name:name, p_value:k }); $('key-'+name).value=''; loadSecretStatus(); toast('Key saved'); return; }
+      if(act==='test-keys'){ $('testOut').textContent='Testing…'; var t=await fn('marketing-publish',{ action:'test' }); $('testOut').innerHTML='Buffer: '+(t.buffer==='ok'?'<span class="ok">connected</span>':esc(t.buffer))+' · MailerLite: '+(t.mailerlite==='ok'?'<span class="ok">connected</span>':esc(t.mailerlite)); return; }
+      if(act==='load-buffer'){ btn.disabled=true; var b=await fn('marketing-publish',{ action:'buffer_channels' }); state.bufferChannels=b.channels||[]; await refresh(); toast(state.bufferChannels.length+' Buffer channels found'); return; }
+      if(act==='load-ml'){ btn.disabled=true; var g=await fn('marketing-publish',{ action:'mailerlite_groups' }); state.mlGroups=g.groups||[]; render(); toast(state.mlGroups.length+' MailerLite groups found'); return; }
+      if(act==='save-settings'){
+        var rows=[
+          { key:'default_times', value:{ linkedin:val('t-linkedin'), instagram:val('t-instagram'), x:val('t-x'), email:val('t-email'), tz:'America/Los_Angeles' } },
+          { key:'email_from', value:{ name:val('from-name'), address:val('from-address') } },
+          { key:'site_base_url', value:val('site-base') },
+          { key:'mailerlite_custom_html', value:val('ml-html')==='true' },
+        ];
+        await api('POST','/mkt_config', rows, 'resolution=merge-duplicates,return=minimal');
+        await refresh(); toast('Settings saved'); return;
+      }
+      if(act==='load-log'){ var lg=await get('/mkt_log?select=*&order=at.desc&limit=500'); state.log=lg||[]; $('logBox').innerHTML=renderLog(); return; }
+      if(act==='export-log'){ if(!state.log.length) state.log=(await get('/mkt_log?select=*&order=at.desc&limit=5000'))||[]; exportLog(); return; }
+    }catch(e){ btn.disabled=false; toast('Failed: '+e.message); }
+  }
+  function renderLog(){
+    if(!state.log.length) return '<div class="sub">Nothing recorded yet.</div>';
+    return '<div class="tablewrap"><table><thead><tr><th>When</th><th>What</th><th>Channel</th><th>Who</th><th>Detail</th></tr></thead><tbody>'+state.log.slice(0,200).map(function(l){ var p=post(l.post_id); return '<tr><td class="mono">'+esc(fmtWhen(l.at))+'</td><td>'+esc(l.event.replace(/_/g,' '))+'</td><td>'+esc(p?CHANNEL_NAME[p.channel]:'')+'</td><td>'+esc(l.actor||'')+'</td><td class="sub">'+esc(JSON.stringify(l.detail||{}).slice(0,140))+'</td></tr>'; }).join('')+'</tbody></table></div>';
+  }
+  function exportLog(){
+    var rows=[['when','event','channel','actor','post_text','detail']];
+    state.log.forEach(function(l){ var p=post(l.post_id); rows.push([l.at, l.event, p?p.channel:'', l.actor||'', p?(p.subject?p.subject+' | ':'')+p.body:'', JSON.stringify(l.detail||{})]); });
+    var csv=rows.map(function(r){ return r.map(function(c){ return '"'+String(c==null?'':c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+    var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{ type:'text/csv' })); a.download='cobalt-marketing-record-'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+  }
+
+  // ---------- events ----------
+  document.addEventListener('click', function(e){
+    var go=e.target.closest('[data-go]'); if(go){ e.preventDefault(); state.view=go.dataset.go; render(); return; }
+    var tab=e.target.closest('.tab'); if(tab){ state.view=tab.dataset.view; render(); return; }
+    var btn=e.target.closest('[data-act]'); if(btn && !btn.disabled){ e.preventDefault(); onAction(btn); return; }
+    if(e.target.id==='overlay') closeModal();
+  });
+  document.addEventListener('input', function(e){
+    var t=e.target, id=t.dataset.id; if(!id) return; var p=post(id); if(!p) return;
+    var ed=state.edits[id]=state.edits[id]||{};
+    if(t.dataset.field==='body') ed.body=t.value;
+    else if(t.dataset.field==='subject') ed.subject=t.value;
+    else if(t.dataset.field==='scheduled_for') ed.scheduled_for=fromLocalInput(t.value);
+    else if(t.dataset.spec){ ed.image_spec=Object.assign({}, cur(p).image_spec, ed.image_spec||{}); ed.image_spec[t.dataset.spec]=t.value; var cv=document.querySelector('canvas[data-card="'+id+'"]'); if(cv) drawCard(cv, ed.image_spec); }
+    var v=cur(p), flags=lint(p.channel, v.body, v.subject), lim=CHANNEL_LIMITS[p.channel], len=(v.body||'').length;
+    var fl=$('flags-'+id); if(fl) fl.innerHTML=renderFlags(flags);
+    var ct=$('count-'+id); if(ct){ ct.textContent=len+(lim&&lim<5000?' / '+lim:'')+' characters'; ct.classList.toggle('over', !!(lim&&len>lim)); }
+    var card=$('post-'+id); if(card){
+      var ap=card.querySelector('[data-act="approve"]'); if(ap){ ap.disabled=hasBlock(flags); }
+      var foot=card.querySelector('.post-foot');
+      if(foot && !foot.querySelector('[data-act="save"]')){ var sv=document.createElement('button'); sv.className='btn btn-sm'; sv.dataset.act='save'; sv.dataset.id=id; sv.textContent='Save edits'; foot.insertBefore(sv, ap); }
+    }
+  });
+  document.addEventListener('change', async function(e){
+    var t=e.target;
+    try{
+      if(t.dataset.enable){ await patch('mkt_channels','key',t.dataset.enable,{ enabled:t.checked }); var ch=channel(t.dataset.enable); if(ch) ch.enabled=t.checked; renderSummary(); toast(CHANNEL_NAME[t.dataset.enable]+(t.checked?' on':' off')); }
+      if(t.dataset.bufferch){ await patch('mkt_channels','key',t.dataset.bufferch,{ external_ref:t.value||null }); var c1=channel(t.dataset.bufferch); if(c1) c1.external_ref=t.value||null; renderSummary(); toast('Linked'); }
+      if(t.dataset.mlgroup){ var k=t.dataset.mlgroup, ids=[].slice.call(document.querySelectorAll('input[data-mlgroup="'+k+'"]:checked')).map(function(x){ return x.value; }); await patch('mkt_channels','key',k,{ external_ref:ids.join(',')||null }); var c2=channel(k); if(c2) c2.external_ref=ids.join(',')||null; renderSummary(); toast('Email groups saved'); }
+    }catch(err){ toast('Failed: '+err.message); }
+  });
+  window.addEventListener('beforeunload', function(e){ if(Object.keys(state.edits).length){ e.preventDefault(); e.returnValue=''; } });
+  $('newBtn').addEventListener('click', function(){ openSource(); });
+  $('refreshBtn').addEventListener('click', function(){ refresh().then(function(){ toast('Refreshed'); }); });
+  $('toolSwitcher').addEventListener('change', function(){ if(this.value) window.location.href=this.value; });
+  $('signOutBtn').addEventListener('click', function(){ clearSession(); showAuth(); });
+
+  // ---------- boot ----------
+  function showAuth(){ $('authGate').style.display='flex'; $('mainApp').style.display='none'; }
+  async function showApp(){
+    $('authGate').style.display='none'; $('mainApp').style.display='block';
+    var vw=new URLSearchParams(location.search).get('view'); if(vw && document.querySelector('.tab[data-view="'+vw+'"]')) state.view=vw;
+    await refresh();
+  }
+  $('authSubmit').addEventListener('click', async function(){
+    var em=val('authEmail'), pw=$('authPassword').value; $('authErr').classList.remove('show');
+    if(!em||!pw){ $('authErr').textContent='Enter email and password'; $('authErr').classList.add('show'); return; }
+    this.disabled=true;
+    try{ saveSession(await authCall('password', { email:em, password:pw })); await showApp(); }
+    catch(e){ $('authErr').textContent=e.message; $('authErr').classList.add('show'); }
+    this.disabled=false;
+  });
+  $('authPassword').addEventListener('keydown', function(e){ if(e.key==='Enter') $('authSubmit').click(); });
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js', { updateViaCache:'none' }).then(function(reg){
+        reg.update().catch(function(){});
+        document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') reg.update().catch(function(){}); });
+      }).catch(function(){});
+      var hadController=!!navigator.serviceWorker.controller, reloaded=false;
+      navigator.serviceWorker.addEventListener('controllerchange', function(){ if(hadController && !reloaded){ reloaded=true; location.reload(); } });
+    });
+  }
+  (async function(){ loadSession(); if(await ensureSession()) showApp(); else showAuth(); })();
+
+  window.__mkt = { state:state, lint:lint, autoFix:autoFix, drawCard:drawCard, render:render, refresh:refresh };
+})();
+</script>
+</body>
+</html>
