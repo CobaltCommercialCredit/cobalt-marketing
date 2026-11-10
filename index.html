@@ -311,6 +311,7 @@
   function postsOf(cid){ return state.posts.filter(function(p){ return p.content_id===cid; }).sort(function(a,b){ return (CHANNEL_ORDER.indexOf(a.channel)-CHANNEL_ORDER.indexOf(b.channel)) || ((a.scheduled_for||'')<(b.scheduled_for||'')?-1:1); }); }
   function cur(p){ var e=state.edits[p.id]||{}; return { body: e.body!=null?e.body:p.body, subject: e.subject!=null?e.subject:p.subject, scheduled_for: e.scheduled_for!==undefined?e.scheduled_for:p.scheduled_for, image_spec: e.image_spec||p.image_spec||{} }; }
   function dirty(p){ return !!state.edits[p.id]; }
+  function isManual(p){ var ch=channel(p.channel); return !!(ch && ch.provider==='manual'); }
 
   // ---------- auth (shared cobalt_session SSO) ----------
   function sbHeaders(extra){ var h={ 'apikey':SUPABASE_KEY, 'Content-Type':'application/json' }; if(state.session&&state.session.access_token) h['Authorization']='Bearer '+state.session.access_token; return Object.assign(h, extra||{}); }
@@ -535,6 +536,7 @@
     var c=content(p.content_id), acts='';
     if(p.status==='approved'){ acts='<button class="btn btn-sm" data-act="unapprove" data-id="'+esc(p.id)+'">Pull back</button><button class="btn btn-sm btn-primary" data-act="publish-now" data-id="'+esc(p.id)+'">Post now</button>'; }
     else if(p.status==='failed'){ acts='<button class="btn btn-sm" data-act="unapprove" data-id="'+esc(p.id)+'">Edit</button><button class="btn btn-sm btn-primary" data-act="retry" data-id="'+esc(p.id)+'">Retry</button>'; }
+    else if(p.status==='needs_finish' && isManual(p)){ acts='<button class="btn btn-sm" data-act="copy-post" data-id="'+esc(p.id)+'">Copy text</button><a class="btn btn-sm" href="https://www.linkedin.com/feed/" target="_blank" rel="noopener">Open LinkedIn</a><button class="btn btn-sm btn-green" data-act="mark-posted" data-id="'+esc(p.id)+'">Mark posted</button>'; }
     else if(p.status==='needs_finish'){ acts='<button class="btn btn-sm" data-act="copy-email" data-id="'+esc(p.id)+'">Copy email text</button>'+(p.external_url?'<a class="btn btn-sm btn-primary" href="'+esc(p.external_url)+'" target="_blank" rel="noopener">Open MailerLite</a>':''); }
     else if(p.status==='scheduled'){ acts='<span class="sub">Handed off. To cancel, delete it in '+(/^email/.test(p.channel)?'MailerLite':'Buffer')+'.</span>'; }
     var when=p.status==='sent'?(p.sent_at||p.scheduled_for):p.scheduled_for;
@@ -542,7 +544,8 @@
       '<div class="excerpt">'+esc((p.subject?p.subject+': ':'')+(p.body||'').replace(/\s+/g,' ').slice(0,180))+'</div>'+
       (c?'<div class="sub">'+esc(c.title)+(p.status==='sent'&&when?' · '+esc(fmtWhen(when)):'')+'</div>':'')+
       (p.error?'<div class="err">'+esc(p.error)+'</div>':'')+
-      (p.status==='needs_finish'?'<div class="sub" style="margin-top:4px">The campaign is set up in MailerLite with subject, sender and list. Paste the email text into its editor and schedule it there. It turns to Sent here on its own.</div>':'')+
+      (p.status==='needs_finish'&&isManual(p)?'<div class="sub" style="margin-top:4px">Your turn: copy it, post it on LinkedIn, then tap Mark posted. The tracked link is included in the copied text.</div>':'')+
+      (p.status==='needs_finish'&&!isManual(p)?'<div class="sub" style="margin-top:4px">The campaign is set up in MailerLite with subject, sender and list. Paste the email text into its editor and schedule it there. It turns to Sent here on its own.</div>':'')+
       '</div><div class="acts">'+acts+'</div></div>';
   }
 
@@ -595,7 +598,8 @@
       '<div class="actions" style="margin-bottom:8px"><button class="btn btn-sm" data-act="load-buffer">Load Buffer channels</button><button class="btn btn-sm" data-act="load-ml">Load MailerLite groups</button></div>';
     CHANNEL_ORDER.forEach(function(k){
       var ch=channel(k)||{ key:k }, picker;
-      if(/^email/.test(k)){
+      if(ch.provider==='manual'){ picker='<span class="sub">You post this yourself. When a post is due it shows under Needs attention with Copy text and Mark posted.</span>'; }
+      else if(/^email/.test(k)){
         var chosen=String(ch.external_ref||'').split(',').filter(Boolean);
         if(state.mlGroups){ picker='<div class="multi">'+(state.mlGroups.length?state.mlGroups.map(function(g){ return '<label><input type="checkbox" data-mlgroup="'+esc(k)+'" value="'+esc(g.id)+'"'+(chosen.indexOf(g.id)>=0?' checked':'')+'> '+esc(g.name)+' <span class="sub">('+esc(g.active_count)+')</span></label>'; }).join(''):'<span class="sub">No groups in MailerLite yet</span>')+'</div>'; }
         else picker='<span class="sub">'+(chosen.length?chosen.length+' group(s) linked':'Not linked')+'. Load MailerLite groups to change.</span>';
@@ -733,6 +737,8 @@
       if(act==='unapprove'){ await patch('mkt_posts','id',p.id,{ status:'draft', external_id:null, error:null }); logEvent(p,'pulled_back'); await refresh(); state.view='queue'; render(); toast('Back in Review'); return; }
       if(act==='retry'){ await patch('mkt_posts','id',p.id,{ status:'approved', external_id:null, error:null }); logEvent(p,'retry'); btn.disabled=true; var r=await fn('marketing-publish',{ action:'publish_now', post_id:p.id }).catch(function(e){ return { ok:false, error:e.message }; }); await refresh(); toast(r.ok?'Handed off':'Still failing: '+(r.error||'')); return; }
       if(act==='publish-now'){ if(!confirm('Post this now instead of at its scheduled time?')) return; btn.disabled=true; var r2=await fn('marketing-publish',{ action:'publish_now', post_id:p.id }).catch(function(e){ return { ok:false, error:e.message }; }); await refresh(); toast(r2.ok?'Posted':'Failed: '+(r2.error||'')); return; }
+      if(act==='copy-post'){ var t2=(p.body||'')+(p.link_url?'\n\n'+p.link_url:''); await navigator.clipboard.writeText(t2); toast('Copied. Paste it into LinkedIn.'); return; }
+      if(act==='mark-posted'){ await patch('mkt_posts','id',p.id,{ status:'sent', sent_at:new Date().toISOString() }); logEvent(p,'posted_by_hand'); await refresh(); toast('Marked posted'); return; }
       if(act==='copy-email'){ var txt=(p.body||'')+(p.link_url?'\n\nRead the full guide: '+p.link_url:''); await navigator.clipboard.writeText(txt); toast('Email text copied'); return; }
       if(act==='save-key'){ var name=btn.dataset.name, k=($('key-'+name).value||'').trim(); if(!k){ toast('Paste the key first'); return; } await rpc('mkt_set_secret', { p_name:name, p_value:k }); $('key-'+name).value=''; loadSecretStatus(); toast('Key saved'); return; }
       if(act==='test-keys'){ $('testOut').textContent='Testing…'; var t=await fn('marketing-publish',{ action:'test' }); $('testOut').innerHTML='Buffer: '+(t.buffer==='ok'?'<span class="ok">connected</span>':esc(t.buffer))+' · MailerLite: '+(t.mailerlite==='ok'?'<span class="ok">connected</span>':esc(t.mailerlite)); return; }

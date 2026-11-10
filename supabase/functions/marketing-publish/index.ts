@@ -191,9 +191,13 @@ async function publishOne(db: SupabaseClient, p: Post, actor: string, keys: { bu
     const flags = lint(p.channel, p.body, p.subject);
     if (hasBlock(flags)) throw new Error("Blocked by brand or compliance rules: " + flags.filter((f) => f.level === "block").map((f) => f.message).join(" "));
     if (!ch || !ch.enabled) throw new Error(`Channel ${p.channel} is not enabled in Settings`);
-    if (!ch.external_ref) throw new Error(`Channel ${p.channel} is not linked to an account in Settings`);
+    if (!ch.external_ref && ch.provider !== "manual") throw new Error(`Channel ${p.channel} is not linked to an account in Settings`);
 
-    if (ch.provider === "buffer") {
+    if (ch.provider === "manual") {
+      // Personal profiles: the person posts it themselves. It shows in Needs attention with Copy text and Mark posted.
+      await db.from("mkt_posts").update({ status: "needs_finish", error: null }).eq("id", p.id);
+      await log(db, p, "ready_to_post_by_hand", actor, { due: p.scheduled_for });
+    } else if (ch.provider === "buffer") {
       if (!keys.buffer) throw new Error("Buffer API key is not set in Settings");
       const r = await pushToBuffer(keys.buffer, p, ch.external_ref);
       await db.from("mkt_posts").update({ status: "scheduled", external_id: r.id, error: null }).eq("id", p.id);
@@ -228,9 +232,10 @@ async function sweep(db: SupabaseClient) {
     results.push(await publishOne(db, p, "scheduler", keys, ctx));
   }
 
-  // 2. Sync Buffer status for posts already handed off.
+  // 2. Sync Buffer status for posts already handed off. Once an hour (the first sweep after the hour),
+  //    which keeps well inside Buffer's daily API limits on any plan.
   const orgId = ctx.cfg.buffer_org_id;
-  if (keys.buffer && orgId) {
+  if (keys.buffer && orgId && new Date().getUTCMinutes() < 15) {
     const { data: pending } = await db.from("mkt_posts").select("*").eq("status", "scheduled").not("external_id", "is", null);
     const social = ((pending || []) as Post[]).filter((p) => !p.channel.startsWith("email"));
     if (social.length) {
