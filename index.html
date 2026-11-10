@@ -237,6 +237,7 @@
   <div class="tabs" id="tabs">
     <button class="tab" data-view="queue">Review<span class="ct" id="ct-queue">0</span></button>
     <button class="tab" data-view="calendar">Calendar<span class="ct" id="ct-calendar">0</span></button>
+    <button class="tab" data-view="ideas">Ideas<span class="ct" id="ct-ideas">0</span></button>
     <button class="tab" data-view="sources">Sources<span class="ct" id="ct-sources">0</span></button>
     <button class="tab" data-view="results">Results</button>
     <button class="tab" data-view="settings">Settings</button>
@@ -289,7 +290,7 @@
   }
   function hasBlock(f){ return f.some(function(x){ return x.level==='block'; }); }
 
-  var state = { session:null, view:'queue', content:[], posts:[], channels:[], config:{}, log:[], secrets:[], bufferChannels:null, mlGroups:null, edits:{}, busy:{} };
+  var state = { session:null, view:'queue', ideas:[], content:[], posts:[], channels:[], config:{}, log:[], secrets:[], bufferChannels:null, mlGroups:null, edits:{}, busy:{} };
 
   // ---------- helpers ----------
   function $(id){ return document.getElementById(id); }
@@ -307,7 +308,7 @@
   function content(id){ for(var i=0;i<state.content.length;i++) if(state.content[i].id===id) return state.content[i]; return null; }
   function post(id){ for(var i=0;i<state.posts.length;i++) if(state.posts[i].id===id) return state.posts[i]; return null; }
   function channel(k){ for(var i=0;i<state.channels.length;i++) if(state.channels[i].key===k) return state.channels[i]; return null; }
-  function postsOf(cid){ return state.posts.filter(function(p){ return p.content_id===cid; }).sort(function(a,b){ return CHANNEL_ORDER.indexOf(a.channel)-CHANNEL_ORDER.indexOf(b.channel); }); }
+  function postsOf(cid){ return state.posts.filter(function(p){ return p.content_id===cid; }).sort(function(a,b){ return (CHANNEL_ORDER.indexOf(a.channel)-CHANNEL_ORDER.indexOf(b.channel)) || ((a.scheduled_for||'')<(b.scheduled_for||'')?-1:1); }); }
   function cur(p){ var e=state.edits[p.id]||{}; return { body: e.body!=null?e.body:p.body, subject: e.subject!=null?e.subject:p.subject, scheduled_for: e.scheduled_for!==undefined?e.scheduled_for:p.scheduled_for, image_spec: e.image_spec||p.image_spec||{} }; }
   function dirty(p){ return !!state.edits[p.id]; }
 
@@ -354,7 +355,9 @@
       get('/mkt_posts?select=*&order=scheduled_for.asc.nullslast&limit=1000'),
       get('/mkt_channels?select=*&order=sort_order.asc'),
       get('/mkt_config?select=key,value'),
+      get('/mkt_ideas?select=*&order=created_at.desc&limit=200'),
     ]);
+    state.ideas=r[4]||[];
     state.content=r[0]||[]; state.posts=r[1]||[]; state.channels=r[2]||[];
     state.config={}; (r[3]||[]).forEach(function(x){ state.config[x.key]=x.value; });
     render();
@@ -448,6 +451,7 @@
     $('ct-queue').textContent=c.draft;
     $('ct-calendar').textContent=c.approved+c.scheduled+c.failed+c.finish;
     $('ct-sources').textContent=state.content.length;
+    $('ct-ideas').textContent=state.ideas.filter(function(i){ return i.status==='new'; }).length;
   }
   function render(){
     renderSummary();
@@ -456,6 +460,7 @@
     if(state.view==='queue') v.innerHTML=renderQueue();
     else if(state.view==='calendar') v.innerHTML=renderCalendar();
     else if(state.view==='sources') v.innerHTML=renderSources();
+    else if(state.view==='ideas') v.innerHTML=renderIdeas();
     else if(state.view==='results') v.innerHTML=renderResults();
     else if(state.view==='settings'){ v.innerHTML=renderSettings(); loadSecretStatus(); }
     if(state.view==='queue') paintCards();
@@ -477,7 +482,7 @@
       var clean=ps.filter(function(p){ return !hasBlock(lint(p.channel, cur(p).body, cur(p).subject)); }).length;
       var head='<div class="group-head"><div><h3>'+esc(c.title)+'</h3><div class="sub">'+esc(c.source_type==='guide'?'Guide':c.source_type==='deal_story'?'Deal story':'Note')+' · '+esc(c.audience==='both'?'Owners and partners':c.audience==='owner'?'Owners':'Partners')+(c.source_url?' · <a href="'+esc(c.source_url)+'" target="_blank" rel="noopener">source</a>':'')+'</div></div>'+
         '<div class="actions">'+(c.status==='generating'?'<span class="pill st-generating"><span class="busy"></span> Drafting</span>':'<button class="btn btn-sm" data-act="redraft-all" data-id="'+esc(c.id)+'">Redraft all</button>'+(clean?'<button class="btn btn-sm btn-green" data-act="approve-all" data-id="'+esc(c.id)+'">Approve all clean ('+clean+')</button>':''))+'</div></div>';
-      if(c.generation_error) head+='<div class="banner amber">Last draft attempt failed: '+esc(c.generation_error)+'</div>';
+      if(c.generation_error) head+='<div class="banner amber">'+(/^Short on/.test(c.generation_error)?esc(c.generation_error)+' <button class="btn btn-sm" data-act="fill" data-id="'+esc(c.id)+'">Fill missing posts</button>':'Last draft attempt failed: '+esc(c.generation_error))+'</div>';
       return '<div class="group">'+head+ps.map(renderPost).join('')+'</div>';
     }).join('');
   }
@@ -486,7 +491,8 @@
     var v=cur(p), flags=lint(p.channel, v.body, v.subject), isIG=p.channel==='instagram', isEmail=/^email/.test(p.channel);
     var lim=CHANNEL_LIMITS[p.channel], len=(v.body||'').length, ch=channel(p.channel), live=ch&&ch.enabled&&ch.external_ref;
     var h='<div class="post" id="post-'+esc(p.id)+'">';
-    h+='<div class="post-head"><span class="chan">'+esc(CHANNEL_NAME[p.channel]||p.channel)+'</span>'+(live?'':'<span class="pill st-needs_finish" title="Connect this channel in Settings">Not connected</span>')+'<span class="spacer"></span>'+
+    var sib=postsOf(p.content_id).filter(function(x){ return x.channel===p.channel; }).sort(function(a,b){ return (a.scheduled_for||'')<(b.scheduled_for||'')?-1:1; }), nth=sib.indexOf(p)+1;
+    h+='<div class="post-head"><span class="chan">'+esc(CHANNEL_NAME[p.channel]||p.channel)+(sib.length>1?' · '+nth+' of '+sib.length:'')+'</span>'+(live?'':'<span class="pill st-needs_finish" title="Connect this channel in Settings">Not connected</span>')+'<span class="spacer"></span>'+
        '<span class="meta-row">Goes out <input type="datetime-local" data-field="scheduled_for" data-id="'+esc(p.id)+'" value="'+esc(toLocalInput(v.scheduled_for))+'"></span></div>';
     h+='<div class="post-body'+(isIG?' with-card':'')+'"><div>';
     if(isEmail) h+='<input class="subj" data-field="subject" data-id="'+esc(p.id)+'" value="'+esc(v.subject||'')+'" placeholder="Subject line">';
@@ -545,10 +551,25 @@
     return '<div class="tablewrap"><table><thead><tr><th>Source</th><th>Audience</th><th>Status</th><th>Posts</th><th>Added</th><th></th></tr></thead><tbody>'+
       state.content.map(function(c){
         var ps=postsOf(c.id), sent=ps.filter(function(p){ return p.status==='sent'; }).length;
-        return '<tr><td><div style="font-weight:600">'+esc(c.title)+'</div>'+(c.source_url?'<div class="sub"><a href="'+esc(c.source_url)+'" target="_blank" rel="noopener">'+esc(c.source_url.replace(/^https?:\/\//,''))+'</a></div>':'')+'</td>'+
+        return '<tr><td><div style="font-weight:600">'+esc(c.title)+'</div>'+(c.origin==='website'?'<div class="sub">From the website</div>':c.origin==='idea'?'<div class="sub">From an idea</div>':'')+(c.generation_error?'<div class="sub" style="color:var(--amber)">'+esc(c.generation_error)+'</div>':'')+(c.source_url?'<div class="sub"><a href="'+esc(c.source_url)+'" target="_blank" rel="noopener">'+esc(c.source_url.replace(/^https?:\/\//,''))+'</a></div>':'')+'</td>'+
           '<td>'+esc(c.audience==='both'?'Both':c.audience==='owner'?'Owners':'Partners')+'</td><td>'+pill(c.status)+'</td><td class="mono">'+sent+' sent / '+ps.length+'</td><td class="mono">'+esc(new Date(c.created_at).toLocaleDateString())+'</td>'+
-          '<td style="white-space:nowrap"><button class="btn btn-sm" data-act="edit-source" data-id="'+esc(c.id)+'">Edit</button> <button class="btn btn-sm" data-act="redraft-all" data-id="'+esc(c.id)+'">Draft again</button> <button class="btn btn-sm btn-ghost" data-act="archive" data-id="'+esc(c.id)+'">Archive</button></td></tr>';
+          '<td style="white-space:nowrap"><button class="btn btn-sm" data-act="edit-source" data-id="'+esc(c.id)+'">Edit</button> '+(ps.length?'<button class="btn btn-sm" data-act="redraft-all" data-id="'+esc(c.id)+'">Redraft open posts</button>':(c.status==='generating'?'<span class="pill st-generating"><span class="busy"></span> Drafting</span>':'<button class="btn btn-sm btn-primary" data-act="draft-source" data-id="'+esc(c.id)+'">Draft posts</button>'))+' <button class="btn btn-sm btn-ghost" data-act="archive" data-id="'+esc(c.id)+'">Archive</button></td></tr>';
       }).join('')+'</tbody></table></div>';
+  }
+
+  function renderIdeas(){
+    var h='<div class="panel"><h3>Toss in an idea</h3><p>A Guide idea goes to the front of the line for the next Guide draft (the 1st and 15th). A quick post idea becomes a few posts this week, for something timely that does not need a full Guide. Specifics make it better: what happened, what the lender said, what fixed it. No client names.</p>'+
+      '<div class="fb"><textarea id="ideaText" style="min-height:110px" placeholder="e.g. Contractor won a big award, bank wanted two years of audited statements, they could not wait. What are the options?"></textarea></div>'+
+      '<div class="actions" style="margin-top:10px"><button class="btn btn-primary" data-act="idea-guide">Save as Guide idea</button><button class="btn" data-act="idea-quick">Make quick posts now</button></div></div>';
+    var list=state.ideas.filter(function(i){ return i.status!=='dismissed'; });
+    if(!list.length) return h+'<div class="empty"><div class="display">No ideas yet</div><p>Anything you or Armen notice in a deal or a conversation is fair game.</p></div>';
+    h+='<div class="tablewrap"><table><thead><tr><th>Idea</th><th>Type</th><th>Status</th><th>Added</th><th></th></tr></thead><tbody>'+list.map(function(i){
+      var st=i.status==='new'?'<span class="pill st-approved">Waiting</span>':i.status==='used'?'<span class="pill st-sent">Used</span>':'<span class="pill st-needs_finish">Skipped</span>';
+      var used=i.used_for?(/^https?:/.test(i.used_for)?'<div class="sub"><a href="'+esc(i.used_for)+'" target="_blank" rel="noopener">'+esc(i.used_for.replace(/^https?:\/\//,''))+'</a></div>':''):'';
+      return '<tr><td style="max-width:520px;white-space:pre-wrap">'+esc(i.idea)+used+(i.note?'<div class="sub">'+esc(i.note)+'</div>':'')+'</td><td>'+(i.kind==='guide'?'Guide':'Quick posts')+'</td><td>'+st+'</td><td class="mono">'+esc(new Date(i.created_at).toLocaleDateString())+'<div class="sub">'+esc((i.added_by||'').split('@')[0])+'</div></td>'+
+        '<td>'+(i.status==='new'?'<button class="btn btn-sm btn-ghost" data-act="idea-dismiss" data-id="'+esc(i.id)+'">Remove</button>':'')+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+    return h;
   }
 
   function renderResults(){
@@ -617,23 +638,24 @@
       '</div><div class="modal-foot"><button class="btn btn-ghost" data-act="close">Cancel</button><button class="btn btn-primary" data-act="save-source" data-id="'+esc(c.id||'')+'">'+(c.id?'Save':'Save and draft posts')+'</button></div>');
   }
 
-  function openRedraft(ids, label, contentId){
+  function openRedraft(label, contentId, postId){
     openModal('<div class="modal-head"><div><h2 class="display">Redraft '+esc(label)+'</h2><p>Optional direction for this pass. Leave blank for a fresh take.</p></div><button class="x" data-act="close">&times;</button></div>'+
       '<div class="modal-body"><div class="fb"><label>Direction</label><textarea id="rdNote" placeholder="e.g. shorter, lead with the cash crunch after a big contract award"></textarea></div></div>'+
-      '<div class="modal-foot"><button class="btn btn-ghost" data-act="close">Cancel</button><button class="btn btn-primary" data-act="do-redraft" data-content="'+esc(contentId)+'" data-channels="'+esc(ids.join(','))+'">Redraft</button></div>');
+      '<div class="modal-foot"><button class="btn btn-ghost" data-act="close">Cancel</button><button class="btn btn-primary" data-act="do-redraft" data-content="'+esc(contentId)+'" data-post="'+esc(postId||'')+'">Redraft</button></div>');
   }
 
   // ---------- actions ----------
-  async function draft(contentId, channels, instruction){
+  async function draft(contentId, opts){
     var c=content(contentId); if(c){ c.status='generating'; c.generation_error=null; }
     if(state.view!=='queue'){ state.view='queue'; }
     render();
-    toast('Drafting posts. This takes about half a minute.');
+    toast('Drafting. This takes up to a minute.');
     try{
-      var r=await fn('marketing-draft', { content_id:contentId, channels:channels||undefined, instruction:instruction||undefined });
+      opts=opts||{};
+      var r=await fn('marketing-draft', { content_id:contentId, post_id:opts.postId||undefined, redraft:opts.redraft||undefined, fill:opts.fill||undefined, instruction:opts.instruction||undefined });
       state.edits={};
       await refresh();
-      toast(r.drafted+' drafts ready'+(r.missing&&r.missing.length?'. Missing: '+r.missing.map(function(m){ return CHANNEL_NAME[m]||m; }).join(', '):''));
+      toast(r.drafted+' draft'+(r.drafted===1?'':'s')+' ready'+(r.missing&&r.missing.length?'. Short on: '+r.missing.join(', '):''));
     }catch(e){ await refresh(); toast('Drafting failed: '+e.message); }
   }
 
@@ -684,9 +706,20 @@
       if(act==='edit-source'){ openSource(content(id)); return; }
       if(act==='save-source'){ btn.disabled=true; await saveSource(id||null); btn.disabled=false; return; }
       if(act==='archive'){ if(!confirm('Archive this source? Its posts stay in the record.')) return; await patch('mkt_content','id',id,{ status:'archived' }); await refresh(); toast('Archived'); return; }
-      if(act==='redraft-all'){ var c=content(id); openRedraft(postsOf(id).filter(function(x){ return x.status==='draft'||x.status==='rejected'; }).map(function(x){ return x.channel; }), 'every open post', id); if(c && !postsOf(id).length) { closeModal(); draft(id); } return; }
-      if(act==='redraft'){ openRedraft([p.channel], CHANNEL_NAME[p.channel], p.content_id); return; }
-      if(act==='do-redraft'){ var chs=(btn.dataset.channels||'').split(',').filter(Boolean); var note=($('rdNote').value||'').trim(); closeModal(); draft(btn.dataset.content, chs.length?chs:undefined, note); return; }
+      if(act==='redraft-all'){ if(!postsOf(id).length){ draft(id); return; } openRedraft('every open post', id); return; }
+      if(act==='draft-source'){ draft(id); return; }
+      if(act==='fill'){ draft(id, { fill:true }); return; }
+      if(act==='redraft'){ openRedraft('this '+CHANNEL_NAME[p.channel]+' post', p.content_id, p.id); return; }
+      if(act==='do-redraft'){ var note=($('rdNote').value||'').trim(), pid=btn.dataset.post; closeModal(); draft(btn.dataset.content, pid?{ postId:pid, instruction:note }:{ redraft:true, instruction:note }); return; }
+      if(act==='idea-guide' || act==='idea-quick'){
+        var txt=($('ideaText').value||'').trim(); if(txt.length<10){ toast('Write a sentence or two'); return; }
+        btn.disabled=true;
+        if(act==='idea-guide'){ await api('POST','/mkt_ideas',{ idea:txt, kind:'guide', added_by:who() },'return=minimal'); await refresh(); toast('Saved. The next Guide draft starts with it.'); return; }
+        var ins=await api('POST','/mkt_content',{ title:txt.split(/[.!?\n]/)[0].slice(0,90), source_type:'note', body:txt, audience:'both', origin:'idea', created_by:who() },'return=representation');
+        await api('POST','/mkt_ideas',{ idea:txt, kind:'quick', added_by:who(), status:'used', used_for:ins[0].id },'return=minimal');
+        await refresh(); draft(ins[0].id); return;
+      }
+      if(act==='idea-dismiss'){ await patch('mkt_ideas','id',id,{ status:'dismissed' }); await refresh(); toast('Removed'); return; }
       if(act==='fix'){ var v=cur(p); state.edits[p.id]=Object.assign({}, state.edits[p.id]||{}, { body:autoFix(v.body), subject:v.subject?autoFix(v.subject):v.subject }); render(); return; }
       if(act==='save'){ btn.disabled=true; await saveEdits(p); render(); toast('Saved'); return; }
       if(act==='reject'){ await saveEdits(p, { status:'rejected' }); logEvent(p,'rejected'); render(); toast('Rejected'); return; }

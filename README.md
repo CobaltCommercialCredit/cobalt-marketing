@@ -8,8 +8,10 @@ Live: https://cobaltcommercialcredit.github.io/cobalt-marketing/
 
 | Step | Where |
 |---|---|
-| Add a source (paste text or give the Guide's web address) | Sources, or + New source |
-| Drafts for every channel, checked against brand and compliance rules | `marketing-draft` Edge Function (Claude) |
+| A Guide is merged on the website | `marketing-draft` finds it in the sitemap within an hour (`pg_cron` job `cobalt-marketing-discover`) and drafts its posts |
+| Or add a source by hand (paste text or give the Guide's web address) | Sources, or + New source |
+| Toss in an idea: a Guide idea feeds the next twice monthly Guide draft; a quick idea becomes a few posts this week | Ideas tab (`mkt_ideas`) |
+| Two weeks of posts per Guide (LinkedIn page 2, Curtis 2, Armen 1, Instagram 4, X 7, one email per list), spread across business days, checked against brand and compliance rules. Counts live in `mkt_config.post_counts` | `marketing-draft` Edge Function (Claude) |
 | Review, edit, approve. Red rule flags block approval | Review tab |
 | About 20 minutes before each post's time, it is handed to Buffer (social) or MailerLite (email) | `marketing-publish`, run every 15 minutes by `pg_cron` job `cobalt-marketing-publish` |
 | Sent and failed status syncs back; every action is recorded | Calendar, Results |
@@ -31,6 +33,6 @@ MailerLite only accepts full HTML email through its API on the Advanced plan. On
 
 ## Tables
 
-`mkt_content`, `mkt_posts`, `mkt_channels`, `mkt_config`, `mkt_log` (append only record). Storage bucket `mkt-media` holds generated Instagram cards (public, so Buffer can fetch them). Same Supabase project and sign-in as every other Cobalt tool (`cobalt_session`). RLS requires an authenticated user.
+`mkt_content`, `mkt_posts`, `mkt_ideas`, `mkt_channels`, `mkt_config`, `mkt_log` (append only record). Storage bucket `mkt-media` holds generated Instagram cards (public, so Buffer can fetch them). Same Supabase project and sign-in as every other Cobalt tool (`cobalt_session`). RLS requires an authenticated user.
 
 The Edge Function source in `supabase/functions` is a copy for the record; deploy changes to Supabase as well.
