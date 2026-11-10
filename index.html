@@ -410,7 +410,7 @@
   function wordmark(light){
     if(!WORDMARK_SVG) return Promise.resolve(null);
     var s=WORDMARK_SVG.replace('<svg ','<svg width="745" height="225" ');
-    if(light) s=s.replace(/fill:#002347/g,'fill:#ffffff').replace(/fill="#002347"/g,'fill="#ffffff"').replace(/fill="#0047ab"/g,'fill="#5b93e0"').replace(/fill="#1a4b8c"/g,'fill="#8db4ea"').replace(/fill:#1a4b8c/g,'fill:#9fc0ee').replace(/fill="#4a7fc4"/g,'fill="#c4d9f5"');
+    if(false) s=s.replace(/fill:#002347/g,'fill:#ffffff').replace(/fill="#002347"/g,'fill="#ffffff"').replace(/fill="#0047ab"/g,'fill="#5b93e0"').replace(/fill="#1a4b8c"/g,'fill="#8db4ea"').replace(/fill:#1a4b8c/g,'fill:#9fc0ee').replace(/fill="#4a7fc4"/g,'fill="#c4d9f5"');
     return loadImg('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s));
   }
   // Pulls a leading figure out of the fact line: "$2.5M line in 21 days" -> ["$2.5M", "line in 21 days"].
@@ -433,11 +433,14 @@
   function mono(c, size, color, spacing){ c.font='600 '+size+'px "IBM Plex Mono", monospace'; c.fillStyle=color; if('letterSpacing' in c) c.letterSpacing=(spacing||0)+'px'; }
   function resetSpacing(c){ if('letterSpacing' in c) c.letterSpacing='0px'; }
   async function footer(c, W, H, wide, dark, x){
-    var wm=wide?260:360, img=await wordmark(dark), h=wm*225/745, pad=wide?44:76;
-    if(img) c.drawImage(img, x-(wide?12:16), H-h-pad+ (wide?14:22), wm, h);
-    mono(c, wide?18:24, dark?'rgba(255,255,255,.62)':'#64748b', 1);
+    // The logo is never recolored. On dark cards it sits on a white strip so its own colors read.
+    var wm=wide?260:360, img=await wordmark(false), h=wm*225/745, band=wide?118:184;
+    if(dark){ c.fillStyle='#ffffff'; c.fillRect(0, H-band, W, band); }
+    var ly=H-band/2-h/2+(dark?0:-(wide?6:24));
+    if(img) c.drawImage(img, x-(wide?12:16), ly, wm, h);
+    mono(c, wide?18:24, '#475569', 1);
     var site='cobaltcommercialcredit.com', sw=c.measureText(site).width;
-    c.fillText(site, W-x-sw, H-pad-(wide?h*0.42:h*0.40)+ (wide?14:22)); resetSpacing(c);
+    c.fillText(site, W-x-sw, ly+h/2+(wide?6:8)); resetSpacing(c);
   }
   async function drawCard(canvas, spec, channel){
     spec=spec||{};
@@ -451,8 +454,6 @@
 
     if(t==='navy'){
       var g=c.createLinearGradient(0,0,W,H); g.addColorStop(0,'#002a55'); g.addColorStop(1,'#001630'); c.fillStyle=g; c.fillRect(0,0,W,H);
-      drawFacets(c, wide?W-150:W-120, wide?H*0.42:H*0.36, wide?560:820, {'#002347':'#0a3566','#0047ab':'#0047ab','#1a4b8c':'#1a4b8c','#4a7fc4':'#4a7fc4'}, 0.6);
-      var vg=c.createLinearGradient(0,0,W*0.75,0); vg.addColorStop(0,'rgba(0,26,52,.96)'); vg.addColorStop(0.62,'rgba(0,26,52,.80)'); vg.addColorStop(1,'rgba(0,26,52,0)'); c.fillStyle=vg; c.fillRect(0,0,W,H);
       var y=wide?92:150;
       if(kicker){ mono(c, wide?20:30, ICE, wide?4:6); c.fillText(kicker, x, y); resetSpacing(c); c.fillStyle='#4a7fc4'; c.fillRect(x, y+(wide?20:28), wide?56:80, wide?4:6); y+=wide?44:70; }
       var tw=wide?maxW*0.66:maxW*0.86, f=fitText(c, head, tw, wide?4:6, wide?58:92, wide?36:56, '800');
@@ -465,7 +466,6 @@
 
     else if(t==='number'){
       c.fillStyle=COBALT; c.fillRect(0,0,W,H);
-      drawFacets(c, wide?W-60:W-40, wide?H*0.55:H*0.62, wide?900:1500, {'#002347':'#0a3f94','#0047ab':'#0b4fb3','#1a4b8c':'#1755b0','#4a7fc4':'#2563be'}, 1);
       var parts=splitStat(stat)||[stat,''], y2=wide?92:150;
       if(kicker){ mono(c, wide?20:30, '#cfe0f8', wide?4:6); c.fillText(kicker, x, y2); resetSpacing(c); y2+=wide?22:40; }
       var nSize=wide?200:400; c.font='800 '+nSize+'px Sora, sans-serif';
@@ -501,7 +501,6 @@
 
     else { // light
       c.fillStyle='#f6f8fb'; c.fillRect(0,0,W,H);
-      drawFacets(c, wide?W-90:W-60, wide?H*0.5:H*0.42, wide?820:1300, {'#002347':'#e6edf7','#0047ab':'#edf2f9','#1a4b8c':'#e9eff8','#4a7fc4':'#f0f4fa'}, 1);
       c.fillStyle=NAVY; c.fillRect(0,0,wide?14:20,H);
       var y3=wide?96:330;
       if(kicker){ mono(c, wide?22:30, COBALT, wide?4:6); c.fillText(kicker, x, y3); resetSpacing(c); c.fillRect(x, y3+(wide?20:28), wide?60:84, wide?5:6); y3+=wide?52:96; }
