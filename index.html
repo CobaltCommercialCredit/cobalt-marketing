@@ -849,7 +849,12 @@
       if(act==='publish-now'){ if(!confirm('Post this now instead of at its scheduled time?')) return; btn.disabled=true; var r2=await fn('marketing-publish',{ action:'publish_now', post_id:p.id }).catch(function(e){ return { ok:false, error:e.message }; }); await refresh(); toast(r2.ok?'Posted':'Failed: '+(r2.error||'')); return; }
       if(act==='copy-post'){ var t2=(p.body||'')+(p.link_url?'\n\n'+p.link_url:''); await navigator.clipboard.writeText(t2); toast('Copied. Paste it into LinkedIn.'); return; }
       if(act==='mark-posted'){ await patch('mkt_posts','id',p.id,{ status:'sent', sent_at:new Date().toISOString() }); logEvent(p,'posted_by_hand'); await refresh(); toast('Marked posted'); return; }
-      if(act==='copy-email'){ var txt=(p.body||'')+(p.link_url?'\n\nRead the full guide: '+p.link_url:''); await navigator.clipboard.writeText(txt); toast('Email text copied'); return; }
+      if(act==='copy-email'){
+        var txt=(p.body||'')+(p.link_url?'\n\nRead the full guide: '+p.link_url:'');
+        var html=String(p.body||'').split(/\n{2,}/).map(function(par){ return '<p>'+esc(par).replace(/\n/g,'<br>')+'</p>'; }).join('')+(p.link_url?'<p><a href="'+esc(p.link_url)+'">Read the full guide</a></p>':'');
+        try{ await navigator.clipboard.write([new ClipboardItem({ 'text/html':new Blob([html],{type:'text/html'}), 'text/plain':new Blob([txt],{type:'text/plain'}) })]); }
+        catch(e){ await navigator.clipboard.writeText(txt); }
+        toast('Email copied. Paste it into the text block in MailerLite'); return; }
       if(act==='save-key'){ var name=btn.dataset.name, k=($('key-'+name).value||'').trim(); if(!k){ toast('Paste the key first'); return; } await rpc('mkt_set_secret', { p_name:name, p_value:k }); $('key-'+name).value=''; loadSecretStatus(); toast('Key saved'); return; }
       if(act==='test-keys'){ $('testOut').textContent='Testing…'; var t=await fn('marketing-publish',{ action:'test' }); $('testOut').innerHTML='Buffer: '+(t.buffer==='ok'?'<span class="ok">connected</span>':esc(t.buffer))+' · MailerLite: '+(t.mailerlite==='ok'?'<span class="ok">connected</span>':esc(t.mailerlite)); return; }
       if(act==='load-buffer'){ btn.disabled=true; var b=await fn('marketing-publish',{ action:'buffer_channels' }); state.bufferChannels=b.channels||[]; await refresh(); toast(state.bufferChannels.length+' Buffer channels found'); return; }
