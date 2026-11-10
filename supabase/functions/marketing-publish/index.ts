@@ -169,6 +169,104 @@ async function pushToMailerLite(
   return { id, status: "scheduled", url };
 }
 
+// ---------- CRM to MailerLite list sync ----------
+// Each person lands in exactly one list. Profession wins: a CPA, attorney, wealth advisor or active COI
+// goes to the partner list even if their company is also a client.
+const PARTNER_ROLES = ["COI", "CPA", "Attorney", "Wealth advisor"];
+const BLOCKED_STATUSES = ["Do Not Contact", "Dead"];
+type Member = { email: string; list: "owners" | "partners"; contact_id: string; name: string; first: string; last: string; company: string };
+
+async function computeLists(db: SupabaseClient, rules: Record<string, any>) {
+  const clientStatuses: string[] = rules.client_statuses || ["Client", "Qualified", "Working", "Nurture"];
+  const includeLenders = rules.include_lenders === true;
+  const [{ data: contacts }, { data: companies }] = await Promise.all([
+    db.from("crm_contacts").select("id, company_id, first_name, last_name, email, roles, referral_partner_id, do_not_contact, email_opt_out"),
+    db.from("crm_companies").select("id, name, status, kind, do_not_contact, conflict_flag"),
+  ]);
+  const coById = new Map((companies || []).map((c) => [c.id, c]));
+  const out = new Map<string, Member>();
+  const skipped: Record<string, number> = { no_email: 0, opted_out: 0, blocked: 0, prospect_or_other: 0 };
+  for (const c of contacts || []) {
+    const email = String(c.email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) { skipped.no_email++; continue; }
+    if (c.email_opt_out) { skipped.opted_out++; continue; }
+    const co: any = c.company_id ? coById.get(c.company_id) : null;
+    if (c.do_not_contact || co?.do_not_contact || co?.conflict_flag || (co && BLOCKED_STATUSES.includes(co.status))) { skipped.blocked++; continue; }
+    const roles: string[] = Array.isArray(c.roles) ? c.roles : [];
+    const isLender = roles.includes("Lender") || co?.kind === "lender";
+    const isPartner = !!c.referral_partner_id || roles.some((r) => PARTNER_ROLES.includes(r)) || (includeLenders && isLender);
+    let list: "owners" | "partners" | null = null;
+    if (isPartner) list = "partners";
+    else if (!isLender && co && (co.kind || "company") === "company" && clientStatuses.includes(co.status)) list = "owners";
+    if (!list) { skipped.prospect_or_other++; continue; }
+    if (out.has(email)) { if (list === "partners") out.get(email)!.list = "partners"; continue; }
+    const first = c.first_name || "", last = c.last_name || "";
+    out.set(email, { email, list, contact_id: c.id, first, last, name: `${first} ${last}`.trim(), company: co?.name || "" });
+  }
+  return { members: [...out.values()], skipped };
+}
+
+async function syncLists(db: SupabaseClient, key: string, ctx: Awaited<ReturnType<typeof loadContext>>, apply: boolean) {
+  const rules = ctx.cfg.list_rules || {};
+  const { members, skipped } = await computeLists(db, rules);
+  const groupOf = (k: string) => String(ctx.chMap[k]?.external_ref || "").split(",").map((s) => s.trim()).filter(Boolean)[0] || null;
+  const groups: Record<string, string | null> = { owners: groupOf("email_owners"), partners: groupOf("email_partners") };
+  const { data: existing } = await db.from("mkt_list_members").select("*");
+  const prev = new Map((existing || []).map((m) => [m.email, m]));
+  const want = new Map(members.map((m) => [m.email, m]));
+  const toAdd = members.filter((m) => !prev.has(m.email) || prev.get(m.email)!.list !== m.list);
+  const toRemove = (existing || []).filter((m) => !want.has(m.email));
+  const summary = {
+    owners: members.filter((m) => m.list === "owners").map((m) => ({ name: m.name, company: m.company })),
+    partners: members.filter((m) => m.list === "partners").map((m) => ({ name: m.name, company: m.company })),
+    adding: toAdd.length, removing: toRemove.length, skipped,
+    groups_linked: !!(groups.owners && groups.partners),
+    unsubscribed: 0, errors: [] as string[],
+  };
+  if (!apply) return summary;
+  if (!summary.groups_linked) throw new Error("Link both email channels to a MailerLite group in Settings first");
+
+  // People who unsubscribed in MailerLite: mark them opted out in the CRM and drop them.
+  for (const m of existing || []) {
+    try {
+      const s = await ml(key, `/subscribers/${encodeURIComponent(m.email)}`);
+      const st = s?.data?.status;
+      if (st === "unsubscribed" || st === "bounced" || st === "junk") {
+        if (m.contact_id) await db.from("crm_contacts").update({ email_opt_out: true }).eq("id", m.contact_id);
+        await db.from("mkt_list_members").delete().eq("email", m.email);
+        want.delete(m.email); summary.unsubscribed++;
+      }
+    } catch { /* not found in MailerLite; it will be re-added below if still wanted */ }
+  }
+
+  for (const m of toAdd) {
+    if (!want.has(m.email)) continue;
+    try {
+      const old = prev.get(m.email);
+      // Status is never sent, so MailerLite keeps anyone who unsubscribed unsubscribed.
+      const r = await ml(key, "/subscribers", {
+        method: "POST",
+        body: JSON.stringify({ email: m.email, fields: { name: m.first, last_name: m.last, company: m.company }, groups: [groups[m.list]] }),
+      });
+      const sid = String(r?.data?.id || old?.ml_subscriber_id || "");
+      if (old && old.list !== m.list && sid && groups[old.list]) {
+        await ml(key, `/subscribers/${sid}/groups/${groups[old.list]}`, { method: "DELETE" }).catch(() => {});
+      }
+      await db.from("mkt_list_members").upsert({ email: m.email, list: m.list, contact_id: m.contact_id, name: m.name, ml_subscriber_id: sid || null, synced_at: new Date().toISOString() });
+    } catch (e) { summary.errors.push(`${m.email}: ${String(e).slice(0, 120)}`); }
+  }
+  for (const m of toRemove) {
+    try {
+      if (m.ml_subscriber_id && groups[m.list]) await ml(key, `/subscribers/${m.ml_subscriber_id}/groups/${groups[m.list]}`, { method: "DELETE" });
+      await db.from("mkt_list_members").delete().eq("email", m.email);
+    } catch (e) { summary.errors.push(`${m.email}: ${String(e).slice(0, 120)}`); }
+  }
+  const last = { at: new Date().toISOString(), owners: summary.owners.length, partners: summary.partners.length, added: summary.adding, removed: summary.removing, unsubscribed: summary.unsubscribed, errors: summary.errors.length };
+  await db.from("mkt_config").upsert({ key: "list_sync_last", value: last });
+  await db.from("mkt_log").insert({ event: "lists_synced", actor: "sync", detail: last });
+  return summary;
+}
+
 // ---------- core ----------
 async function loadContext(db: SupabaseClient) {
   const [{ data: channels }, { data: cfgRows }] = await Promise.all([
@@ -279,7 +377,18 @@ async function sweep(db: SupabaseClient) {
     }
   }
 
-  // 4. Mark source items done when every post is sent or rejected.
+  // 4. Once a day (first sweep after 7am Pacific), refresh the email lists from the CRM.
+  const laHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", hourCycle: "h23" }).format(new Date()));
+  if (keys.ml && (ctx.cfg.list_rules || {}).auto_sync !== false && laHour === 7 && new Date().getUTCMinutes() < 15) {
+    try {
+      const r = await syncLists(db, keys.ml, ctx, true);
+      results.push({ lists: { owners: r.owners.length, partners: r.partners.length, errors: r.errors.length } });
+    } catch (err) {
+      results.push({ list_sync_error: String(err).slice(0, 300) });
+    }
+  }
+
+  // 5. Mark source items done when every post is sent or rejected.
   const { data: open } = await db.from("mkt_content").select("id").eq("status", "in_review");
   for (const c of open || []) {
     const { data: ps } = await db.from("mkt_posts").select("status").eq("content_id", c.id);
@@ -357,6 +466,13 @@ Deno.serve(async (req: Request) => {
         try { if (bk) { await buffer(bk, `query { account { id } }`); out.buffer = "ok"; } else out.buffer = "not set"; } catch (e) { out.buffer = String(e).slice(0, 200); }
         try { if (mk) { await ml(mk, "/groups?limit=1"); out.mailerlite = "ok"; } else out.mailerlite = "not set"; } catch (e) { out.mailerlite = String(e).slice(0, 200); }
         return json(out);
+      }
+      case "list_preview":
+      case "list_sync": {
+        const key = await secret(db, "MAILERLITE_API_KEY");
+        if (!key && body.action === "list_sync") return json({ error: "Save your MailerLite API key first" }, 400);
+        const r = await syncLists(db, key || "", await loadContext(db), body.action === "list_sync");
+        return json(r);
       }
       case "sweep": {
         const results = await sweep(db);

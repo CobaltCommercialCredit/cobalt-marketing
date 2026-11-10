@@ -601,8 +601,8 @@
       if(ch.provider==='manual'){ picker='<span class="sub">You post this yourself. When a post is due it shows under Needs attention with Copy text and Mark posted.</span>'; }
       else if(/^email/.test(k)){
         var chosen=String(ch.external_ref||'').split(',').filter(Boolean);
-        if(state.mlGroups){ picker='<div class="multi">'+(state.mlGroups.length?state.mlGroups.map(function(g){ return '<label><input type="checkbox" data-mlgroup="'+esc(k)+'" value="'+esc(g.id)+'"'+(chosen.indexOf(g.id)>=0?' checked':'')+'> '+esc(g.name)+' <span class="sub">('+esc(g.active_count)+')</span></label>'; }).join(''):'<span class="sub">No groups in MailerLite yet</span>')+'</div>'; }
-        else picker='<span class="sub">'+(chosen.length?chosen.length+' group(s) linked':'Not linked')+'. Load MailerLite groups to change.</span>';
+        if(state.mlGroups){ picker=state.mlGroups.length?'<select data-mlgroup="'+esc(k)+'"><option value="">Not linked</option>'+state.mlGroups.map(function(g){ return '<option value="'+esc(g.id)+'"'+(chosen[0]===g.id?' selected':'')+'>'+esc(g.name)+' ('+esc(g.active_count)+' subscribers)</option>'; }).join('')+'</select>':'<span class="sub">No groups in MailerLite yet</span>'; }
+        else picker='<span class="sub">'+(chosen.length?'Linked':'Not linked')+'. Load MailerLite groups to change.</span>';
       } else {
         if(state.bufferChannels){ var want=BUFFER_SERVICE[k]; picker='<select data-bufferch="'+esc(k)+'"><option value="">Not linked</option>'+state.bufferChannels.filter(function(b){ return !want || String(b.service).toLowerCase().indexOf(want)>=0 || (want==='twitter' && /x/i.test(b.service)); }).map(function(b){ return '<option value="'+esc(b.id)+'"'+(b.id===ch.external_ref?' selected':'')+'>'+esc(b.name)+' ('+esc(b.service)+')</option>'; }).join('')+'</select>'; }
         else picker='<span class="sub">'+(ch.external_ref?'Linked':'Not linked')+'. Load Buffer channels to change.</span>';
@@ -611,6 +611,13 @@
         '<label class="switch" title="On or off"><input type="checkbox" data-enable="'+esc(k)+'"'+(ch.enabled?' checked':'')+'><span></span></label><div>'+picker+'</div></div>';
     });
     h+='</div>';
+
+    var lr=Object.assign({ client_statuses:['Client','Qualified','Working','Nurture'], include_lenders:false, auto_sync:true }, cfg.list_rules||{}), ls=cfg.list_sync_last;
+    h+='<div class="panel"><h3>Email lists from the CRM</h3><p>Each person goes in one list. CPAs, attorneys, wealth advisors and active COIs go to the COI list, even if their company is also a client. Everyone else at a company with a status ticked below goes to the clients list. Prospects, do not contact, conflict flagged and opted out contacts are never added. Anyone who unsubscribes is marked opted out in the CRM. Only add people who expect to hear from you.</p>'+
+      '<div class="fb"><label>Company statuses for the clients list</label><div class="checks" style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px">'+['Client','Qualified','Working','Nurture','Partner','Prospect'].map(function(st){ return '<label style="display:flex;gap:5px;align-items:center;font-weight:500"><input type="checkbox" data-rule="status" value="'+st+'"'+(lr.client_statuses.indexOf(st)>=0?' checked':'')+'> '+st+'</label>'; }).join('')+'</div></div>'+
+      '<div class="chrow" style="grid-template-columns:1fr auto"><div><div style="font-weight:600">Include bank lender contacts in the COI list</div><div class="sub">Off: only lenders marked as COIs in the CRM are included.</div></div><label class="switch"><input type="checkbox" data-rule="include_lenders"'+(lr.include_lenders?' checked':'')+'><span></span></label></div>'+
+      '<div class="chrow" style="grid-template-columns:1fr auto"><div><div style="font-weight:600">Sync every morning at 7am</div><div class="sub">Keeps both lists current as the CRM changes.</div></div><label class="switch"><input type="checkbox" data-rule="auto_sync"'+(lr.auto_sync!==false?' checked':'')+'><span></span></label></div>'+
+      '<div class="actions" style="margin-top:12px"><button class="btn btn-sm" data-act="list-preview">Preview</button><button class="btn btn-sm btn-primary" data-act="list-sync">Sync now</button>'+(ls?'<span class="sub">Last sync '+esc(fmtWhen(ls.at))+': '+esc(ls.owners)+' clients, '+esc(ls.partners)+' COIs'+(ls.errors?', '+esc(ls.errors)+' errors':'')+'</span>':'')+'</div><div id="listOut" style="margin-top:12px"></div></div>';
 
     h+='<div class="panel"><h3>Timing and email</h3><p>Default send times for new drafts (Pacific). Each source rolls out over four business days: company page and X first, personal profiles and Instagram after, email last.</p>'+
       '<div class="grid4"><div class="fb"><label>LinkedIn</label><input type="time" id="t-linkedin" value="'+esc(t.linkedin||'08:15')+'"></div><div class="fb"><label>Instagram</label><input type="time" id="t-instagram" value="'+esc(t.instagram||'11:30')+'"></div><div class="fb"><label>X</label><input type="time" id="t-x" value="'+esc(t.x||'09:00')+'"></div><div class="fb"><label>Email</label><input type="time" id="t-email" value="'+esc(t.email||'07:30')+'"></div></div>'+
@@ -754,9 +761,22 @@
         await api('POST','/mkt_config', rows, 'resolution=merge-duplicates,return=minimal');
         await refresh(); toast('Settings saved'); return;
       }
+      if(act==='list-preview' || act==='list-sync'){
+        if(act==='list-sync' && !confirm('Add these people to your MailerLite lists now?')) return;
+        btn.disabled=true; $('listOut').innerHTML='<span class="sub"><span class="busy"></span> Working…</span>';
+        var lr2=await fn('marketing-publish',{ action:act==='list-sync'?'list_sync':'list_preview' }); btn.disabled=false;
+        $('listOut').innerHTML=renderListResult(lr2, act==='list-sync'); if(act==='list-sync'){ await refresh(); state.view='settings'; render(); $('listOut').innerHTML=renderListResult(lr2,true); toast('Lists synced'); } return; }
       if(act==='load-log'){ var lg=await get('/mkt_log?select=*&order=at.desc&limit=500'); state.log=lg||[]; $('logBox').innerHTML=renderLog(); return; }
       if(act==='export-log'){ if(!state.log.length) state.log=(await get('/mkt_log?select=*&order=at.desc&limit=5000'))||[]; exportLog(); return; }
     }catch(e){ btn.disabled=false; toast('Failed: '+e.message); }
+  }
+  function renderListResult(r, done){
+    function names(list){ return list.length?list.map(function(x){ return esc(x.name||'(no name)')+(x.company?' <span class="sub">'+esc(x.company)+'</span>':''); }).join('<br>'):'<span class="sub">Nobody yet</span>'; }
+    var sk=r.skipped||{};
+    return '<div class="grid2"><div class="card" style="border:1px solid var(--line);border-radius:8px;padding:12px"><div style="font-weight:600;margin-bottom:6px">Clients and contacts ('+r.owners.length+')</div><div style="font-size:13px;line-height:1.6">'+names(r.owners)+'</div></div>'+
+      '<div class="card" style="border:1px solid var(--line);border-radius:8px;padding:12px"><div style="font-weight:600;margin-bottom:6px">COIs ('+r.partners.length+')</div><div style="font-size:13px;line-height:1.6">'+names(r.partners)+'</div></div></div>'+
+      '<div class="sub" style="margin-top:8px">'+(done?'Added or moved '+r.adding+', removed '+r.removing+(r.unsubscribed?', '+r.unsubscribed+' unsubscribed and marked opted out':''):'Sync would add or move '+r.adding+' and remove '+r.removing)+'. Left out: '+(sk.prospect_or_other||0)+' prospects or lenders, '+(sk.blocked||0)+' blocked or conflict flagged, '+(sk.opted_out||0)+' opted out, '+(sk.no_email||0)+' without an email.'+(r.groups_linked?'':' Link both email channels above before syncing.')+'</div>'+
+      (r.errors&&r.errors.length?'<div class="flag block" style="margin-top:8px">'+esc(r.errors.slice(0,5).join(' | '))+'</div>':'');
   }
   function renderLog(){
     if(!state.log.length) return '<div class="sub">Nothing recorded yet.</div>';
@@ -797,7 +817,11 @@
     try{
       if(t.dataset.enable){ await patch('mkt_channels','key',t.dataset.enable,{ enabled:t.checked }); var ch=channel(t.dataset.enable); if(ch) ch.enabled=t.checked; renderSummary(); toast(CHANNEL_NAME[t.dataset.enable]+(t.checked?' on':' off')); }
       if(t.dataset.bufferch){ await patch('mkt_channels','key',t.dataset.bufferch,{ external_ref:t.value||null }); var c1=channel(t.dataset.bufferch); if(c1) c1.external_ref=t.value||null; renderSummary(); toast('Linked'); }
-      if(t.dataset.mlgroup){ var k=t.dataset.mlgroup, ids=[].slice.call(document.querySelectorAll('input[data-mlgroup="'+k+'"]:checked')).map(function(x){ return x.value; }); await patch('mkt_channels','key',k,{ external_ref:ids.join(',')||null }); var c2=channel(k); if(c2) c2.external_ref=ids.join(',')||null; renderSummary(); toast('Email groups saved'); }
+      if(t.dataset.mlgroup){ var k=t.dataset.mlgroup, gv=t.value||null; await patch('mkt_channels','key',k,{ external_ref:gv }); var c2=channel(k); if(c2) c2.external_ref=gv; renderSummary(); toast('Email list saved'); }
+      if(t.dataset.rule){ var rules=Object.assign({ client_statuses:['Client','Qualified','Working','Nurture'], include_lenders:false, auto_sync:true }, state.config.list_rules||{});
+        if(t.dataset.rule==='status'){ var sts=[].slice.call(document.querySelectorAll('input[data-rule="status"]:checked')).map(function(x){ return x.value; }); rules.client_statuses=sts; }
+        else rules[t.dataset.rule]=t.checked;
+        await api('POST','/mkt_config',[{ key:'list_rules', value:rules }],'resolution=merge-duplicates,return=minimal'); state.config.list_rules=rules; $('listOut').innerHTML=''; toast('Saved. Tap Preview to see who is in each list.'); }
     }catch(err){ toast('Failed: '+err.message); }
   });
   window.addEventListener('beforeunload', function(e){ if(Object.keys(state.edits).length){ e.preventDefault(); e.returnValue=''; } });
