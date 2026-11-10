@@ -30,7 +30,7 @@ export function lint(channel: string, body: string, subject?: string | null): Fl
   const flags: Flag[] = [];
   const text = `${subject || ""}\n${body || ""}`;
 
-  if (/access\s+capital/i.test(text)) {
+  if (/access\s+capital|redmount/i.test(text)) {
     flags.push({ level: "block", code: "restricted_name", message: "Mentions a restricted name. Remove it." });
   }
   if (/debt\s+(relief|settlement|consolidation)/i.test(text)) {

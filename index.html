@@ -273,7 +273,7 @@
   function autoFix(t){ if(!t) return t; return t.replace(/\s*[—–]\s*/g, ', ').replace(/,\s*,/g, ',').replace(/ {2,}/g, ' ').trim(); }
   function lint(channel, body, subject){
     var f=[], text=(subject||'')+'\n'+(body||'');
-    if(/access\s+capital/i.test(text)) f.push({ level:'block', code:'restricted_name', message:'Mentions a restricted name. Remove it.' });
+    if(/access\s+capital|redmount/i.test(text)) f.push({ level:'block', code:'restricted_name', message:'Mentions a restricted name. Remove it.' });
     if(/debt\s+(relief|settlement|consolidation)/i.test(text)) f.push({ level:'block', code:'debt_relief', message:'Use "refinancing" or "replacement financing", never debt relief or settlement language.' });
     if(/guarantee(d)?\s+(approval|funding|rate|financing)|approval\s+guaranteed/i.test(text)) f.push({ level:'block', code:'guarantee', message:'Promises approval or terms. Remove the guarantee.' });
     if(/\bloan\s+broker\b/i.test(text)) f.push({ level:'warn', code:'broker_label', message:'Public copy does not describe Cobalt as a loan broker.' });
