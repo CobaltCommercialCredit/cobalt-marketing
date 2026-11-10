@@ -75,9 +75,9 @@ async function pushToBuffer(key: string, p: Post, channelId: string): Promise<{ 
   } else {
     input.mode = "shareNow";
   }
+  if (p.channel === "instagram" && !p.image_url) throw new Error("Instagram post has no image. Open it in Cobalt Marketing and approve it again to build the card.");
+  if (p.image_url) input.assets = [{ image: { url: p.image_url } }];
   if (p.channel === "instagram") {
-    if (!p.image_url) throw new Error("Instagram post has no image. Open it in Cobalt Marketing and generate the card.");
-    input.assets = [{ image: { url: p.image_url } }];
     input.metadata = { instagram: { type: "post", shouldShareToFeed: true } };
   }
   const data = await buffer(

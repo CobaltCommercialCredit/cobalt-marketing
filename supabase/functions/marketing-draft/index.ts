@@ -77,15 +77,21 @@ CHANNEL STYLES:
 - linkedin_company: Cobalt's company page. Audience is referral partners: CPAs, attorneys, bankers, wealth advisors. Angle: what they should watch for in their clients and when to make an introduction. 120 to 220 words, short paragraphs, at most 2 hashtags at the very end. Never use the line "advice is free".
 - linkedin_curtis: Curtis's personal profile, first person "I". A practitioner's observation or point of view drawn from the source, not a summary. 80 to 180 words. Do not claim personal deal history that is not in the source.
 - linkedin_armen: Armen's personal profile, first person "I". A different angle from Curtis (the negotiation, lender relationship, or structuring side). 80 to 180 words. Same restriction on claims.
-- instagram: audience is business owners. A strong first line hook, then 50 to 110 words, end with "Full guide: link in bio." and 3 to 5 relevant hashtags. Each post also has image_spec for a branded text card: kicker (2 to 4 words, a label like "CASH FLOW" or "OWNER'S GUIDE"), headline (6 to 12 words, the core idea of that post), and stat (under 7 words, ONLY a figure or fact stated in the source; otherwise empty string).
+- instagram: audience is business owners. A strong first line hook, then 50 to 110 words, end with "Full guide: link in bio." and 3 to 5 relevant hashtags.
 - x: at most 240 characters each, no hashtags or one at most. Sharp, standalone points.
 - email_owners: newsletter section for clients and owner contacts. subject (under 60 characters, specific, not clickbait) and body (120 to 200 words, plain paragraphs, ends by inviting a reply to talk through their situation). "Advice is free, execution isn't" may be used here sparingly.
 - email_partners: newsletter section for referral partners (CPAs, attorneys, bankers). subject and body (120 to 200 words) about how this topic shows up in their clients and how Cobalt helps when they refer. Never use the line "advice is free".
 
+PICTURES: every linkedin_company, linkedin_curtis, linkedin_armen, instagram and x post ALSO has image_spec for a branded picture card (no photos of people except the partner headshot, no stock imagery):
+- kicker: 2 to 4 words, a label such as "CASH FLOW", "OWNER'S GUIDE", "FOR ADVISORS".
+- headline: 6 to 12 words, the single idea of THAT post, written to stop the scroll. For linkedin_curtis and linkedin_armen it is a first person line in that partner's voice, shown as a quote beside his photo.
+- stat: under 8 words, ONLY a figure or fact stated in the source, ideally starting with the number (e.g. "80% advance on eligible receivables"); otherwise empty string. Never invent a number.
+- template: "number" when stat starts with a figure, otherwise "navy" or "light" (vary them across a channel's posts). Leave it empty for linkedin_curtis and linkedin_armen.
+
 OUTPUT SHAPE: an object whose keys are the requested channels, each an array with EXACTLY the requested number of posts:
 {
-  "linkedin_company": [ { "body": "" } ],
-  "instagram": [ { "body": "", "image_spec": { "kicker": "", "headline": "", "stat": "" } } ],
+  "linkedin_company": [ { "body": "", "image_spec": { "kicker": "", "headline": "", "stat": "", "template": "" } } ],
+  "instagram": [ { "body": "", "image_spec": { "kicker": "", "headline": "", "stat": "", "template": "" } } ],
   "email_owners": [ { "subject": "", "body": "" } ]
 }`;
 
@@ -348,7 +354,8 @@ async function draftContent(
         const body = autoFix(d.body!);
         const subject = d.subject ? autoFix(d.subject) : null;
         const spec = d.image_spec
-          ? { kicker: autoFix(d.image_spec.kicker || ""), headline: autoFix(d.image_spec.headline || ""), stat: autoFix(d.image_spec.stat || "") }
+          ? { kicker: autoFix(d.image_spec.kicker || ""), headline: autoFix(d.image_spec.headline || ""), stat: autoFix(d.image_spec.stat || ""),
+              ...(["navy", "number", "light"].includes(String(d.image_spec.template || "")) && !/curtis|armen/.test(ch) ? { template: d.image_spec.template } : {}) }
           : null;
         rows.push({
           id, content_id: content.id, channel: ch, body, subject, image_spec: spec,

@@ -84,7 +84,7 @@
   .linkline{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); word-break:break-all; }
   .cardbox canvas{ width:100%; height:auto; border:1px solid var(--line); border-radius:6px; display:block; }
   .cardbox .fb{ margin-top:6px; }
-  .cardbox input{ width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:12.5px 'IBM Plex Sans',sans-serif; margin-top:4px; }
+  .cardbox input,.cardbox select{ width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:12.5px 'IBM Plex Sans',sans-serif; margin-top:4px; }
   .pill{ display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; background:var(--grey-tint); color:var(--ink-soft); }
   .st-draft{ background:var(--grey-tint); color:var(--ink-soft); }
   .st-approved{ background:var(--cobalt-tint); color:var(--cobalt-dark); }
@@ -309,7 +309,8 @@
   function post(id){ for(var i=0;i<state.posts.length;i++) if(state.posts[i].id===id) return state.posts[i]; return null; }
   function channel(k){ for(var i=0;i<state.channels.length;i++) if(state.channels[i].key===k) return state.channels[i]; return null; }
   function postsOf(cid){ return state.posts.filter(function(p){ return p.content_id===cid; }).sort(function(a,b){ return (CHANNEL_ORDER.indexOf(a.channel)-CHANNEL_ORDER.indexOf(b.channel)) || ((a.scheduled_for||'')<(b.scheduled_for||'')?-1:1); }); }
-  function cur(p){ var e=state.edits[p.id]||{}; return { body: e.body!=null?e.body:p.body, subject: e.subject!=null?e.subject:p.subject, scheduled_for: e.scheduled_for!==undefined?e.scheduled_for:p.scheduled_for, image_spec: e.image_spec||p.image_spec||{} }; }
+  function defaultSpec(p){ if(!hasCard(p.channel)) return {}; var c=content(p.content_id); return { kicker: /linkedin/.test(p.channel)?'FOR ADVISORS':(p.channel==='x'?'COBALT GUIDE':"OWNER'S GUIDE"), headline: c?c.title:'', stat:'' }; }
+  function cur(p){ var e=state.edits[p.id]||{}, base=(p.image_spec&&p.image_spec.headline)?p.image_spec:defaultSpec(p); return { body: e.body!=null?e.body:p.body, subject: e.subject!=null?e.subject:p.subject, scheduled_for: e.scheduled_for!==undefined?e.scheduled_for:p.scheduled_for, image_spec: e.image_spec||base }; }
   function dirty(p){ return !!state.edits[p.id]; }
   function isManual(p){ var ch=channel(p.channel); return !!(ch && ch.provider==='manual'); }
 
@@ -378,47 +379,148 @@
       img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(WORDMARK_SVG.replace('<svg ','<svg width="745" height="225" '));
     });
   }
-  async function drawCard(canvas, spec){
-    spec=spec||{};
-    try{ await Promise.all([document.fonts.load('700 80px Sora'), document.fonts.load('600 30px "IBM Plex Mono"'), document.fonts.load('600 44px Sora')]); }catch(e){}
-    canvas.width=CARD_W; canvas.height=CARD_H;
-    var c=canvas.getContext('2d');
-    c.fillStyle='#f6f8fb'; c.fillRect(0,0,CARD_W,CARD_H);
-    // structure: navy rail on the left, cobalt rule under the kicker
-    c.fillStyle='#002347'; c.fillRect(0,0,24,CARD_H);
-    var x=110, y=190, maxW=CARD_W-x-100;
-    var kicker=String(spec.kicker||'').toUpperCase();
-    if(kicker){
-      c.fillStyle='#0047AB'; c.font='600 30px "IBM Plex Mono", monospace';
-      if('letterSpacing' in c) c.letterSpacing='5px';
-      c.fillText(kicker, x, y);
-      if('letterSpacing' in c) c.letterSpacing='0px';
-      c.fillRect(x, y+30, 90, 6);
-      y+=120;
-    }
-    var size=86; c.font='700 '+size+'px Sora, sans-serif';
-    var lines=wrapLines(c, spec.headline||'', maxW);
-    while(lines.length>6 && size>56){ size-=6; c.font='700 '+size+'px Sora, sans-serif'; lines=wrapLines(c, spec.headline||'', maxW); }
-    c.fillStyle='#002347';
-    lines.forEach(function(l){ y+=size*1.12; c.fillText(l, x, y); });
-    if(spec.stat){
-      y+=80; c.font='600 44px Sora, sans-serif';
-      var sl=wrapLines(c, spec.stat, maxW-80), boxH=sl.length*58+56;
-      c.fillStyle='#0047AB'; c.fillRect(x, y, maxW, boxH);
-      c.fillStyle='#ffffff'; var sy=y+28;
-      sl.forEach(function(l){ sy+=48; c.fillText(l, x+40, sy); });
-    }
-    var img=await svgImage();
-    if(img){ var w=430, h=w*225/745; c.drawImage(img, x-20, CARD_H-h-90, w, h); }
-    c.fillStyle='#64748b'; c.font='500 24px "IBM Plex Mono", monospace';
+  // Card sizes: tall for Instagram and LinkedIn (largest in a phone feed), wide for X.
+  var CARD_FMT = { instagram:[1080,1350], linkedin_company:[1080,1350], linkedin_curtis:[1080,1350], linkedin_armen:[1080,1350], x:[1200,675] };
+  var CARD_CHANNELS = Object.keys(CARD_FMT);
+  function hasCard(ch){ return CARD_CHANNELS.indexOf(ch)>=0; }
+  var TEMPLATES = [['navy','Navy'],['number','Big number'],['voice','Personal (photo)'],['light','Light']];
+  var PEOPLE = { linkedin_curtis:{ name:'Curtis Hollowell', title:'Managing Partner, Cobalt Commercial Credit', photo:'assets/curtis.jpg' },
+                 linkedin_armen:{ name:'Armen Grigorian', title:'Managing Partner, Cobalt Commercial Credit', photo:'assets/armen.jpg' } };
+  // The six facets of the Cobalt mark, in logo coordinates (centre about 242,384).
+  var FACETS = [
+    ['#1a4b8c',[242.75,285.58,256.16,374.11,327.43,334.47]],
+    ['#4a7fc4',[329.32,430.71,329.32,335.56,258.07,383.14]],
+    ['#002347',[154.64,335.56,154.64,430.71,225.88,383.14]],
+    ['#0047ab',[227.80,374.11,241.21,285.58,156.53,334.47]],
+    ['#0047ab',[227.80,392.16,155.14,432.58,241.47,482.42]],
+    ['#1a4b8c',[256.16,392.16,242.49,482.42,328.82,432.58]] ];
+  // Draws the mark as large artwork. size = height of the hexagon in px; colors maps logo fill -> fill on this card.
+  function drawFacets(c, cx, cy, size, colors, alpha){
+    var k=size/197; c.save(); c.globalAlpha=alpha==null?1:alpha;
+    FACETS.forEach(function(f){ var pts=f[1]; c.beginPath();
+      for(var i=0;i<pts.length;i+=2){ var px=cx+(pts[i]-242)*k, py=cy+(pts[i+1]-384)*k; if(i===0) c.moveTo(px,py); else c.lineTo(px,py); }
+      c.closePath(); c.fillStyle=colors[f[0]]||f[0]; c.fill(); });
+    c.restore();
+  }
+  var imgCache={};
+  function loadImg(src){
+    if(!imgCache[src]) imgCache[src]=new Promise(function(resolve){ var i=new Image(); i.onload=function(){ resolve(i); }; i.onerror=function(){ resolve(null); }; i.src=src; });
+    return imgCache[src];
+  }
+  function wordmark(light){
+    if(!WORDMARK_SVG) return Promise.resolve(null);
+    var s=WORDMARK_SVG.replace('<svg ','<svg width="745" height="225" ');
+    if(light) s=s.replace(/fill:#002347/g,'fill:#ffffff').replace(/fill="#002347"/g,'fill="#ffffff"').replace(/fill="#0047ab"/g,'fill="#5b93e0"').replace(/fill="#1a4b8c"/g,'fill="#8db4ea"').replace(/fill:#1a4b8c/g,'fill:#9fc0ee').replace(/fill="#4a7fc4"/g,'fill="#c4d9f5"');
+    return loadImg('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s));
+  }
+  // Pulls a leading figure out of the fact line: "$2.5M line in 21 days" -> ["$2.5M", "line in 21 days"].
+  function splitStat(stat){
+    var m=String(stat||'').match(/^\s*((?:\$\s?)?\d[\d,.]*\s?(?:%|[kKmMbB]\b|\+|x\b)?)\s*(.*)$/);
+    if(!m) return null; return [m[1].replace(/\s+/g,''), m[2].replace(/^(of|in|is|to)\s+/i, function(w){ return w; })];
+  }
+  function pickTemplate(spec, channel){
+    if(spec.template && (spec.template!=='voice' || PEOPLE[channel])) return spec.template;
+    if(PEOPLE[channel]) return 'voice';
+    if(splitStat(spec.stat)) return 'number';
+    var h=0, s=String(spec.headline||''); for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+    return h%2?'navy':'light';
+  }
+  function fitText(c, text, maxW, maxLines, size, min, weight){
+    c.font=weight+' '+size+'px Sora, sans-serif'; var lines=wrapLines(c, text, maxW);
+    while(lines.length>maxLines && size>min){ size-=3; c.font=weight+' '+size+'px Sora, sans-serif'; lines=wrapLines(c, text, maxW); }
+    return { lines:lines, size:size };
+  }
+  function mono(c, size, color, spacing){ c.font='600 '+size+'px "IBM Plex Mono", monospace'; c.fillStyle=color; if('letterSpacing' in c) c.letterSpacing=(spacing||0)+'px'; }
+  function resetSpacing(c){ if('letterSpacing' in c) c.letterSpacing='0px'; }
+  async function footer(c, W, H, wide, dark, x){
+    var wm=wide?260:360, img=await wordmark(dark), h=wm*225/745, pad=wide?44:76;
+    if(img) c.drawImage(img, x-(wide?12:16), H-h-pad+ (wide?14:22), wm, h);
+    mono(c, wide?18:24, dark?'rgba(255,255,255,.62)':'#64748b', 1);
     var site='cobaltcommercialcredit.com', sw=c.measureText(site).width;
-    c.fillText(site, CARD_W-100-sw, CARD_H-118);
+    c.fillText(site, W-x-sw, H-pad-(wide?h*0.42:h*0.40)+ (wide?14:22)); resetSpacing(c);
+  }
+  async function drawCard(canvas, spec, channel){
+    spec=spec||{};
+    var fmt=CARD_FMT[channel]||CARD_FMT.instagram, W=fmt[0], H=fmt[1], wide=W>H;
+    try{ await Promise.all([document.fonts.load('700 80px Sora'), document.fonts.load('800 80px Sora'), document.fonts.load('600 30px "IBM Plex Mono"'), document.fonts.load('600 44px Sora'), document.fonts.load('400 44px Sora')]); }catch(e){}
+    canvas.width=W; canvas.height=H;
+    var c=canvas.getContext('2d'); if(!c) return canvas;
+    var t=pickTemplate(spec, channel);
+    var x=wide?72:96, maxW=W-2*x, kicker=String(spec.kicker||'').toUpperCase(), head=spec.headline||'', stat=spec.stat||'';
+    var NAVY='#002347', COBALT='#0047AB', ICE='#8db4ea';
+
+    if(t==='navy'){
+      var g=c.createLinearGradient(0,0,W,H); g.addColorStop(0,'#002a55'); g.addColorStop(1,'#001630'); c.fillStyle=g; c.fillRect(0,0,W,H);
+      drawFacets(c, wide?W-150:W-120, wide?H*0.42:H*0.36, wide?560:820, {'#002347':'#0a3566','#0047ab':'#0047ab','#1a4b8c':'#1a4b8c','#4a7fc4':'#4a7fc4'}, 0.6);
+      var vg=c.createLinearGradient(0,0,W*0.75,0); vg.addColorStop(0,'rgba(0,26,52,.96)'); vg.addColorStop(0.62,'rgba(0,26,52,.80)'); vg.addColorStop(1,'rgba(0,26,52,0)'); c.fillStyle=vg; c.fillRect(0,0,W,H);
+      var y=wide?92:150;
+      if(kicker){ mono(c, wide?20:30, ICE, wide?4:6); c.fillText(kicker, x, y); resetSpacing(c); c.fillStyle='#4a7fc4'; c.fillRect(x, y+(wide?20:28), wide?56:80, wide?4:6); y+=wide?44:70; }
+      var tw=wide?maxW*0.66:maxW*0.86, f=fitText(c, head, tw, wide?4:6, wide?58:92, wide?36:56, '800');
+      c.fillStyle='#ffffff'; f.lines.forEach(function(l){ y+=f.size*1.1; c.fillText(l, x, y); });
+      if(stat){ y+=wide?34:64; c.fillStyle='#4a7fc4'; c.fillRect(x, y, wide?4:6, 1); var sf=fitText(c, stat, tw-30, 3, wide?26:36, 22, '400'), sy=y;
+        c.fillStyle='rgba(255,255,255,.85)'; sf.lines.forEach(function(l){ sy+=sf.size*1.3; c.fillText(l, x+(wide?22:30), sy); });
+        c.fillStyle='#4a7fc4'; c.fillRect(x, y+6, wide?4:6, sy-y+4); }
+      await footer(c, W, H, wide, true, x);
+    }
+
+    else if(t==='number'){
+      c.fillStyle=COBALT; c.fillRect(0,0,W,H);
+      drawFacets(c, wide?W-60:W-40, wide?H*0.55:H*0.62, wide?900:1500, {'#002347':'#0a3f94','#0047ab':'#0b4fb3','#1a4b8c':'#1755b0','#4a7fc4':'#2563be'}, 1);
+      var parts=splitStat(stat)||[stat,''], y2=wide?92:150;
+      if(kicker){ mono(c, wide?20:30, '#cfe0f8', wide?4:6); c.fillText(kicker, x, y2); resetSpacing(c); y2+=wide?22:40; }
+      var nSize=wide?200:400; c.font='800 '+nSize+'px Sora, sans-serif';
+      while(c.measureText(parts[0]).width>(wide?maxW*0.55:maxW) && nSize>90){ nSize-=8; c.font='800 '+nSize+'px Sora, sans-serif'; }
+      c.fillStyle='#ffffff'; if('letterSpacing' in c) c.letterSpacing='-4px'; y2+=nSize*0.95; c.fillText(parts[0], x-6, y2); resetSpacing(c);
+      if(parts[1]){ y2+=wide?16:18; var lf=fitText(c, parts[1], wide?maxW*0.55:maxW*0.8, 2, wide?30:42, 22, '600'); c.fillStyle='#cfe0f8'; lf.lines.forEach(function(l){ y2+=lf.size*1.25; c.fillText(l, x, y2); }); }
+      if(wide){ var hx=x+maxW*0.6, hf=fitText(c, head, W-hx-x, 5, 38, 26, '700'), hy=96; c.fillStyle='rgba(0,22,48,.35)'; c.fillRect(hx-28, 70, 4, hf.lines.length*hf.size*1.18+40);
+        c.fillStyle='#ffffff'; hf.lines.forEach(function(l){ hy+=hf.size*1.18; c.fillText(l, hx, hy); }); }
+      else { var hf2=fitText(c, head, maxW*0.86, 4, 60, 38, '700'), hb=H-250, hy2=hb-hf2.lines.length*hf2.size*1.15; hy2=Math.max(hy2, y2+90);
+        c.fillStyle='rgba(255,255,255,.4)'; c.fillRect(x, hy2-36, 120, 5); c.fillStyle='#ffffff'; hf2.lines.forEach(function(l){ hy2+=hf2.size*1.15; c.fillText(l, x, hy2); }); }
+      await footer(c, W, H, wide, true, x);
+    }
+
+    else if(t==='voice'){
+      var who=PEOPLE[channel]||PEOPLE.linkedin_curtis, photo=await loadImg(who.photo);
+      c.fillStyle='#f4f7fb'; c.fillRect(0,0,W,H);
+      c.fillStyle=NAVY; c.fillRect(0,0,W,wide?H:(H*0.30)); if(wide){ c.fillRect(0,0,W*0.36,H); c.fillStyle='#f4f7fb'; c.fillRect(W*0.36,0,W,H); }
+      var r=wide?120:150, pcx=wide?W*0.18:x+r, pcy=wide?H*0.42:H*0.30;
+      c.save(); c.beginPath(); c.arc(pcx,pcy,r+10,0,Math.PI*2); c.fillStyle='#ffffff'; c.fill(); c.beginPath(); c.arc(pcx,pcy,r,0,Math.PI*2); c.clip();
+      if(photo){ c.drawImage(photo, pcx-r, pcy-r, 2*r, 2*r); } else { c.fillStyle='#c9d6e8'; c.fillRect(pcx-r,pcy-r,2*r,2*r); }
+      c.restore();
+      var qx=wide?W*0.36+64:x, qw=wide?W-qx-x:maxW, qy=wide?84:pcy+r+70;
+      c.fillStyle=COBALT; c.font='800 '+(wide?120:170)+'px Sora, sans-serif'; c.fillText('“', qx-6, qy+(wide?56:80));
+      qy+=wide?62:84;
+      var qf=fitText(c, head, qw, wide?4:5, wide?44:62, wide?28:38, '700'); c.fillStyle=NAVY; qf.lines.forEach(function(l){ qy+=qf.size*1.16; c.fillText(l, qx, qy); });
+      if(stat && !wide){ qy+=40; var sf2=fitText(c, stat, qw, 2, 32, 24, '400'); c.fillStyle='#334155'; sf2.lines.forEach(function(l){ qy+=sf2.size*1.3; c.fillText(l, qx, qy); }); }
+      var ny=wide?H*0.42+r+58:Math.min(qy+80, H-250); var nx=wide?pcx:qx; c.textAlign=wide?'center':'left';
+      c.fillStyle=wide?'#ffffff':NAVY; c.font='700 '+(wide?26:34)+'px Sora, sans-serif'; c.fillText(who.name, nx, ny);
+      mono(c, wide?14:24, wide?ICE:'#475569', 1); c.fillText(wide?'MANAGING PARTNER':who.title.toUpperCase(), nx, ny+(wide?30:40)); resetSpacing(c); c.textAlign='left';
+      if(wide){ var img2=await wordmark(false), wm2=230; if(img2) c.drawImage(img2, qx-10, H-wm2*225/745-26, wm2, wm2*225/745); }
+      else { await footer(c, W, H, wide, false, x); }
+    }
+
+    else { // light
+      c.fillStyle='#f6f8fb'; c.fillRect(0,0,W,H);
+      drawFacets(c, wide?W-90:W-60, wide?H*0.5:H*0.42, wide?820:1300, {'#002347':'#e6edf7','#0047ab':'#edf2f9','#1a4b8c':'#e9eff8','#4a7fc4':'#f0f4fa'}, 1);
+      c.fillStyle=NAVY; c.fillRect(0,0,wide?14:20,H);
+      var y3=wide?96:330;
+      if(kicker){ mono(c, wide?22:30, COBALT, wide?4:6); c.fillText(kicker, x, y3); resetSpacing(c); c.fillRect(x, y3+(wide?20:28), wide?60:84, wide?5:6); y3+=wide?52:96; }
+      var lw=wide&&stat?maxW*0.6:maxW*(wide?0.78:0.92), lf2=fitText(c, head, lw, wide?4:6, wide?58:90, wide?36:56, '800');
+      var headTop=y3; c.fillStyle=NAVY; lf2.lines.forEach(function(l){ y3+=lf2.size*1.1; c.fillText(l, x, y3); });
+      if(stat){
+        if(wide){ var bx=x+maxW*0.64, bw=W-bx-x, sl=fitText(c, stat, bw-48, 4, 28, 20, '600'), bh=sl.lines.length*sl.size*1.3+48, by=headTop+90;
+          c.fillStyle=COBALT; c.fillRect(bx,by,bw,bh); c.fillStyle='#ffffff'; var yy=by+20; sl.lines.forEach(function(l){ yy+=sl.size*1.3; c.fillText(l, bx+24, yy); }); }
+        else { y3+=70; var sl3=fitText(c, stat, maxW-90, 3, 40, 28, '600'), bh3=sl3.lines.length*sl3.size*1.3+64; c.fillStyle=COBALT; c.fillRect(x,y3,maxW,bh3);
+          c.fillStyle='#ffffff'; var sy3=y3+28; sl3.lines.forEach(function(l){ sy3+=sl3.size*1.3; c.fillText(l, x+44, sy3); }); }
+      }
+      await footer(c, W, H, wide, false, x);
+    }
     return canvas;
   }
   async function uploadCard(p){
     var spec=cur(p).image_spec;
-    if(!spec || !spec.headline) throw new Error('The Instagram card needs a headline');
-    var cv=document.createElement('canvas'); await drawCard(cv, spec);
+    if(!spec || !spec.headline) throw new Error('The picture needs a headline');
+    var cv=document.createElement('canvas'); await drawCard(cv, spec, p.channel);
     var blob=await new Promise(function(r){ cv.toBlob(r, 'image/png'); });
     var path=p.content_id+'/'+p.id+'-'+Date.now()+'.png';
     await ensureSession();
@@ -489,7 +591,7 @@
   }
 
   function renderPost(p){
-    var v=cur(p), flags=lint(p.channel, v.body, v.subject), isIG=p.channel==='instagram', isEmail=/^email/.test(p.channel);
+    var v=cur(p), flags=lint(p.channel, v.body, v.subject), isIG=hasCard(p.channel), isEmail=/^email/.test(p.channel);
     var lim=CHANNEL_LIMITS[p.channel], len=(v.body||'').length, ch=channel(p.channel), live=ch&&ch.enabled&&ch.external_ref;
     var h='<div class="post" id="post-'+esc(p.id)+'">';
     var sib=postsOf(p.content_id).filter(function(x){ return x.channel===p.channel; }).sort(function(a,b){ return (a.scheduled_for||'')<(b.scheduled_for||'')?-1:1; }), nth=sib.indexOf(p)+1;
@@ -504,7 +606,8 @@
     if(isIG){
       var s=v.image_spec||{};
       h+='<div class="cardbox"><canvas data-card="'+esc(p.id)+'"></canvas>'+
-        '<div class="fb"><input data-spec="kicker" data-id="'+esc(p.id)+'" value="'+esc(s.kicker||'')+'" placeholder="Label, e.g. CASH FLOW">'+
+        '<div class="fb"><select data-spec="template" data-id="'+esc(p.id)+'">'+TEMPLATES.filter(function(tt){ return tt[0]!=='voice'||PEOPLE[p.channel]; }).map(function(tt){ return '<option value="'+tt[0]+'"'+(pickTemplate(s,p.channel)===tt[0]?' selected':'')+'>'+tt[1]+'</option>'; }).join('')+'</select>'+
+        '<input data-spec="kicker" data-id="'+esc(p.id)+'" value="'+esc(s.kicker||'')+'" placeholder="Label, e.g. CASH FLOW">'+
         '<input data-spec="headline" data-id="'+esc(p.id)+'" value="'+esc(s.headline||'')+'" placeholder="Headline">'+
         '<input data-spec="stat" data-id="'+esc(p.id)+'" value="'+esc(s.stat||'')+'" placeholder="Fact from the source (optional)"></div></div>';
     }
@@ -517,7 +620,7 @@
     return h+'</div>';
   }
   function renderFlags(flags){ return flags.map(function(f){ return '<div class="flag '+f.level+'">'+(f.level==='block'?'Must fix: ':'')+esc(f.message)+'</div>'; }).join(''); }
-  function paintCards(){ document.querySelectorAll('canvas[data-card]').forEach(function(cv){ var p=post(cv.dataset.card); if(p) drawCard(cv, cur(p).image_spec); }); }
+  function paintCards(){ document.querySelectorAll('canvas[data-card]').forEach(function(cv){ var p=post(cv.dataset.card); if(p) drawCard(cv, cur(p).image_spec, p.channel); }); }
 
   function renderCalendar(){
     var list=state.posts.filter(function(p){ return ['approved','scheduled','failed','needs_finish','sent'].indexOf(p.status)>=0; });
@@ -536,7 +639,7 @@
     var c=content(p.content_id), acts='';
     if(p.status==='approved'){ acts='<button class="btn btn-sm" data-act="unapprove" data-id="'+esc(p.id)+'">Pull back</button><button class="btn btn-sm btn-primary" data-act="publish-now" data-id="'+esc(p.id)+'">Post now</button>'; }
     else if(p.status==='failed'){ acts='<button class="btn btn-sm" data-act="unapprove" data-id="'+esc(p.id)+'">Edit</button><button class="btn btn-sm btn-primary" data-act="retry" data-id="'+esc(p.id)+'">Retry</button>'; }
-    else if(p.status==='needs_finish' && isManual(p)){ acts='<button class="btn btn-sm" data-act="copy-post" data-id="'+esc(p.id)+'">Copy text</button><a class="btn btn-sm" href="https://www.linkedin.com/feed/" target="_blank" rel="noopener">Open LinkedIn</a><button class="btn btn-sm btn-green" data-act="mark-posted" data-id="'+esc(p.id)+'">Mark posted</button>'; }
+    else if(p.status==='needs_finish' && isManual(p)){ acts='<button class="btn btn-sm" data-act="copy-post" data-id="'+esc(p.id)+'">Copy text</button>'+(p.image_url?'<a class="btn btn-sm" href="'+esc(p.image_url)+'?download='+esc(p.id.slice(0,8))+'.png" target="_blank" rel="noopener">Save image</a>':'')+'<a class="btn btn-sm" href="https://www.linkedin.com/feed/" target="_blank" rel="noopener">Open LinkedIn</a><button class="btn btn-sm btn-green" data-act="mark-posted" data-id="'+esc(p.id)+'">Mark posted</button>'; }
     else if(p.status==='needs_finish'){ acts='<button class="btn btn-sm" data-act="copy-email" data-id="'+esc(p.id)+'">Copy email text</button>'+(p.external_url?'<a class="btn btn-sm btn-primary" href="'+esc(p.external_url)+'" target="_blank" rel="noopener">Open MailerLite</a>':''); }
     else if(p.status==='scheduled'){ acts='<span class="sub">Handed off. To cancel, delete it in '+(/^email/.test(p.channel)?'MailerLite':'Buffer')+'.</span>'; }
     var when=p.status==='sent'?(p.sent_at||p.scheduled_for):p.scheduled_for;
@@ -544,7 +647,7 @@
       '<div class="excerpt">'+esc((p.subject?p.subject+': ':'')+(p.body||'').replace(/\s+/g,' ').slice(0,180))+'</div>'+
       (c?'<div class="sub">'+esc(c.title)+(p.status==='sent'&&when?' · '+esc(fmtWhen(when)):'')+'</div>':'')+
       (p.error?'<div class="err">'+esc(p.error)+'</div>':'')+
-      (p.status==='needs_finish'&&isManual(p)?'<div class="sub" style="margin-top:4px">Your turn: copy it, post it on LinkedIn, then tap Mark posted. The tracked link is included in the copied text.</div>':'')+
+      (p.status==='needs_finish'&&isManual(p)?'<div class="sub" style="margin-top:4px">Your turn: copy the text, save the image, post both on LinkedIn, then tap Mark posted. The tracked link is included in the copied text.</div>':'')+
       (p.status==='needs_finish'&&!isManual(p)?'<div class="sub" style="margin-top:4px">The campaign is set up in MailerLite with subject, sender and list. Paste the email text into its editor and schedule it there. It turns to Sent here on its own.</div>':'')+
       '</div><div class="acts">'+acts+'</div></div>';
   }
@@ -703,7 +806,7 @@
     if(hasBlock(flags)){ if(!quiet) toast('Fix the red items first'); return false; }
     if(!v.scheduled_for){ if(!quiet) toast('Set a time first'); return false; }
     var extra={ status:'approved', approved_by:who(), approved_at:new Date().toISOString(), error:null };
-    if(p.channel==='instagram'){ extra.image_url=await uploadCard(p); }
+    if(hasCard(p.channel)){ var sp=cur(p).image_spec; extra.image_url=await uploadCard(p); extra.image_spec=sp; }
     await saveEdits(p, extra);
     logEvent(p, 'approved', { scheduled_for:p.scheduled_for });
     return true;
@@ -802,7 +905,7 @@
     if(t.dataset.field==='body') ed.body=t.value;
     else if(t.dataset.field==='subject') ed.subject=t.value;
     else if(t.dataset.field==='scheduled_for') ed.scheduled_for=fromLocalInput(t.value);
-    else if(t.dataset.spec){ ed.image_spec=Object.assign({}, cur(p).image_spec, ed.image_spec||{}); ed.image_spec[t.dataset.spec]=t.value; var cv=document.querySelector('canvas[data-card="'+id+'"]'); if(cv) drawCard(cv, ed.image_spec); }
+    else if(t.dataset.spec){ ed.image_spec=Object.assign({}, cur(p).image_spec, ed.image_spec||{}); ed.image_spec[t.dataset.spec]=t.value; var cv=document.querySelector('canvas[data-card="'+id+'"]'); if(cv) drawCard(cv, ed.image_spec, p.channel); }
     var v=cur(p), flags=lint(p.channel, v.body, v.subject), lim=CHANNEL_LIMITS[p.channel], len=(v.body||'').length;
     var fl=$('flags-'+id); if(fl) fl.innerHTML=renderFlags(flags);
     var ct=$('count-'+id); if(ct){ ct.textContent=len+(lim&&lim<5000?' / '+lim:'')+' characters'; ct.classList.toggle('over', !!(lim&&len>lim)); }
